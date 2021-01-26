@@ -37,9 +37,16 @@ matrix `cost.csv`.  An ancestral reconstruction appears in
 character (of `extant.csv`) appears in `solutions/`.  Finally, all
 events that happen in the tree for single characters appear in
 `unit.csv`, while all events that happen for pairs of characters,
-along with their correlation, appear in `pairwise.csv`.  For the full
-set of parameters of `parcours`, type
+along with their correlation, appear in `pairwise.csv`.
 
-    ../parcours -h
+For another example with more than two states, the example used in
+Fig. 2 of [Clemente et al.,
+2009](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2677398/) to
+illustrate the structure that stores all parsimonious solutions, go to
+the `clemente/` directory and type
 
-or with no parameters.
+    ../parcours -f config.csv
+
+to generate all solutions, correlations, etc.  The three solutions
+implied by Fig. 2 of the above article are then found in the
+`solutions/` subdirectory.
