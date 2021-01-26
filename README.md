@@ -12,7 +12,7 @@ ancestral assignments.
 
 First, make sure that you have Python3 and NumPy as well as the [ETE
 Toolkit](http://etetoolkit.org/).  The latter two can be installed on
-most systems with via
+most systems via
 
     pip3 install numpy
     pip3 install ete3
@@ -47,9 +47,8 @@ the `clemente/` directory and type
 
     ../parcours -f config.csv
 
-to generate all solutions, correlations, etc.  The three solutions
-implied by Fig. 2 of the above article are then found in the
-`solutions/` subdirectory.
+The three solutions implied by Fig. 2 of the above article are then
+found in the `solutions/` subdirectory.
 
 # replicating the experiments
 
