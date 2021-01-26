@@ -1,0 +1,1272 @@
+#!/usr/bin/env python3
+#
+# run `./parcours -h` to see usage
+#
+# while (somewhat) modular, internally, the eventual goal is to junk
+# this up into several packages in a subdirectory src/
+
+import sys
+import argparse
+import os.path
+import csv
+from ete3 import Tree
+from collections import defaultdict
+import numpy
+
+#
+# "normalize" a name (lower case, single-spaced, etc.)
+def normalize(name) :
+    return ' '.join(name.lower().split())
+
+#
+# apply a config file
+def apply_config(args) :
+
+    # obtain config
+    rows = csv.DictReader(open(args.config,'r'))
+    a, b, *_ = rows.fieldnames
+
+    conf = {}
+    for row in rows :
+
+        t = normalize(row[a])
+        f = row[b].strip()
+        if t in ['extant', 'cost'] : # multivalued attributes
+            f = row[b].split()
+
+        conf[t] = f
+
+    # apply config
+    for a in vars(args) :
+        attr = getattr(args, a) # attribute from commandline
+
+        if a in conf :
+            if attr : # append the two in the case of multivalueds
+
+                # give precedence to commmandline in both cases..
+                if a == 'extant' :
+                    setattr(args, a, attr + conf[a])
+                if a == 'cost' :
+                    setattr(args, a, conf[a] + attr)
+                    
+            else : # o.w., use conf value only if not provided on commandline
+                setattr(args, a, conf[a])
+
+    return args
+
+#
+# save configuration to a file
+def save_config(args, reported) :
+
+    save = open(args.save,'w')
+
+    print('Type', 'File(s)', sep = ', ', file = save)
+    for a in vars(args) :
+
+        v = getattr(args, a)
+        if a in ['extant', 'cost'] :
+            v = reported[a]
+
+        print(a, v if v else '', sep = ', ', file = save)
+
+    save.close()
+
+#
+# process, verify and report on the commandline arguments
+def process_args(args) :
+    good = True
+    reported = {'extant' : '', 'cost' : ''}
+
+    print()
+    print('files used:')
+    print()
+    print('  {}  \t{}'.format('Type','Files(s)'))
+    print('  {}'.format('-'*65))
+
+    for attr in vars(args) :
+        val = getattr(args, attr)
+
+        err = ''
+        if not val and attr in ['tree', 'extant'] :
+            err = '** ERROR: required file **'
+            good = False
+
+        if val and attr in ['tree', 'names'] :
+            if not os.path.isfile(val) :
+                err = '** ERROR: file "' + val + '" does not exist **'
+                good = False
+
+        # extant: process list of files into dictionary
+        if attr == 'extant' and val :
+            dic = {}
+
+            # inital pass for key/value pairs, e.g., A=extant.csv, B=..
+            rest = []
+            for elem in val :
+                key, *v = elem.split('=',1)
+
+                if v :
+                    dic[key] = v[0]
+
+                else :
+                    rest.append(key)
+                    
+            # put the rest in with keys starting at A..
+            key = 'A'
+            for elem in rest :
+
+                while key in dic : # find a free key
+                    key = chr(ord(key) + 1)
+
+                dic[key] = elem
+
+            # check to see if each is a file
+            for key in dic :
+                if not os.path.isfile(dic[key]) :
+                    err = '** ERROR: file "' + dic[key] + '" does not exist **'
+                    good = False
+
+            # make it nice for reporting purposes
+            if good :
+                val = ['{}={}'.format(key,dic[key]) for key in sorted(dic)]
+
+            # val is nicely formatted, or is the "raw" value for error reporting
+            val = ' '.join(val)
+
+            reported['extant'] = val # keep for saving config to a file
+            setattr(args, attr, dic) # set to dictionary
+
+        # cost: process list of files into dictionary
+        if attr == 'cost' :
+            val = [] if val == None else val # should there be no cost at all
+            ext = getattr(args, 'extant') # order guarantees it is processed
+
+            dic = {} # for initial key/range=value pairs
+            ints = {} # disjoint intervals from `dic`
+            comp = {} # the complement of `ints`
+            runs = {} # all intervals ordered into runs
+            mcols = {} # number of columns
+            for key in ext :
+                dic[key] = {}
+                ints[key] = {}
+                comp[key] = []
+                runs[key] = []
+                mcols[key] = len(csv.DictReader(open(ext[key],'r')).fieldnames) - 1
+
+            maxm = max(mcols[key] for key in ext)
+
+            # initial pass for key/range=value pairs, e.g., A1-12=cost.csv, A13-=..
+            rest = []
+            for elem in val :
+                ran, *v = elem.split('=',1)
+
+                key = None
+                start = None
+                end = None
+                if v :
+                    v = v[0]
+                    
+                    if '-' in ran : # it's really a range: get endpoint
+                        end = maxm
+                        ran, e = ran.split('-',1)
+
+                        if e and e != 'end' :
+                            end = int(e)
+
+                    # collect the (known) keys
+                    keys = set([])
+                    head = ran.strip('0123456789')
+                    for k in ext :
+                        if k in head :
+
+                            # obtain key for which the range applies
+                            if head.endswith(k) :
+                                key = k
+                                _, ran = ran.rsplit(k,1)
+
+                            else :
+                                keys.add(k)
+
+                            head = head.replace(k,'.')
+
+                    # sanity check at the end
+                    head = list(filter(lambda x : x != '', head.split('.')))
+                    if head :
+                        err = '** ERROR: key "' + head[0] + '" not found **'
+                        good = False
+
+                    elif ran :
+                        start = int(ran)
+
+                    # if a key was found, add resulting key/range=value to the dictionary
+                    if key :
+                        if end :
+                            end = min(end, mcols[key]) # clip endpoint
+
+                        if start :
+                            if start <= mcols[key] : # filter ranges which start beyond the end
+
+                                if end :
+                                    if start <= end : # filter ranges with end < start
+                                        dic[key][(start,end)] = v
+
+                                else :
+                                    dic[key][(start,start)] = v
+
+                        else :
+                            if end :
+                                dic[key][(1,end)] = v
+
+                            else :
+                                dic[key][(1,mcols[key])] = v
+
+                    # add the other keys, defaulting to (1,end) range
+                    for k in keys :
+                        dic[k][(1,mcols[k])] = v
+
+                else : # o.w., it's just a "naked" file
+                    rest.append(ran)
+
+            # make ranges disjoint by iteratively clipping with leftmost longest
+            for key in dic :
+
+                ran = dic[key]
+                if not ran :
+                    continue
+                
+                left = min(a for a,b in ran)
+                while ran :
+
+                    clip = 0
+                    for a,b in ran :
+                        if a == left and b > clip :
+                            clip = b
+
+                    # keep leftmost longest, which exists and is unique by definition
+                    ints[key][(left,clip)] = ran[(left,clip)]
+                    ran.pop((left,clip)) # discard from dictionary
+                    
+                    # update dictionary and leftmost
+                    for a,b in tuple(ran) : # cuz we modify as we iterate..
+
+                        if a <= clip : # overlapping or contained (or equal)
+                            value = ran[(a,b)]
+
+                            ran.pop((a,b)) # discard interval
+                            if b > clip :
+                                ran[(clip+1,b)] = value # clip overlapping interval
+
+                    if ran : # if there is anything.. "left"
+                        left = min(a for a,b in ran)
+
+            # compute the "complement" of the disjoint ranges
+            for key in ints :
+                ran = ints[key]
+
+                if not ran :
+                    comp[key] = [(1, mcols[key])]
+                    continue
+
+                start = 1
+                for a,b in ran :
+                    end = a - 1
+                    
+                    # interval before (a,b)
+                    if start <= end :
+                        comp[key].append((start,end))
+
+                    start = b + 1
+
+                # interval after last (a,b)
+                end = mcols[key]
+                if start <= end :
+                    comp[key].append((start,end))
+
+            # fill the gaps in with the rest of the cost files
+            if rest :
+
+                i = 0
+                for key in sorted(comp) :
+
+                    ran = comp[key]
+                    if ran :
+
+                        # fill any gaps of key with next file
+                        for p in ran :
+                            ints[key][p] = rest[i]
+
+                        # apply last file to the remaining keys
+                        if i < len(rest) - 1 :
+                            i += 1
+
+            # tack "consecutive" intervals to obtain maximal runs
+            for key in ints :
+                ran = ints[key]
+                
+                if not ran :
+                    runs[key] = [(1, mcols[key], None)]
+                    continue
+
+                consec = sorted(ran)
+                i,j = consec[0] # first interval
+                run = i,j,ran[(i,j)] # first run to accumulate onto
+                for a,b in consec[1:] :
+                    f = ran[(a,b)]
+                    i,j,fij = run
+                    assert j < a # sanity check
+
+                    if f == fij and a == j + 1 : # if consecutive, tack on
+                        run = i,b,f
+
+                    else : # emit run and start a new one
+                        runs[key].append(run)
+                        run = a,b,f
+                        
+                # add last run
+                runs[key].append(run)
+
+            # now we check to see if each run corresponds to a file
+            for key in sorted(runs) :
+                for a,b,f in runs[key] :
+                    if f and not os.path.isfile(f) :
+                        err = '** ERROR: file "' + f + '" does not exist **'
+                        good = False
+
+            # make it nice for reporting purposes
+            if good :
+                report = []
+
+                # now we do consecutive runs of keys
+                run = '','',0 # keys, fname, end
+                for i, key in enumerate(sorted(runs)) :
+                    rs = runs[key]
+                    keys, fname, end = run
+                    assert rs # there is always one run, e.g., B=None
+
+                    a,b,f = rs[0] # first run
+                    if a == 1 and b == mcols[key] : # it covers key
+                        assert len(rs) == 1 # sanity check
+                        
+                        if keys : # if there is a run..
+                        
+                            if f == fname and i == end + 1 : # tack on
+                                run = keys + str(key), fname, end + 1
+
+                            else : # emit run and start a new one
+                                report.append('{}={}'.format(keys, fname))
+
+                                run = '','',0 # reset
+                                if f : # start new run if f != None
+                                    run = str(key), f, i
+
+                        else : # ..start a new run
+
+                            run = '','',0 # reset
+                            if f : # start a new run if f != None
+                                run = str(key), f, i
+
+                    else : # it is one (or more) segment(s)
+
+                        if keys : # if there is a run
+                            report.append('{}={}'.format(keys, fname))
+                            run = '','',0 # reset
+                        
+                        for r in rs : # emit the segments
+
+                            a,b,f = r
+                            if b == mcols[key] :
+                                b = 'end' # very nice..
+
+                            if a == b : # another "nicety"
+                                report.append('{}{}={}'.format(key, a, f))
+                            else :
+                                report.append('{}{}-{}={}'.format(key, a, b, f))
+
+                # last run
+                keys, fname, end = run
+                if keys : # emit, if it exists
+                    report.append('{}={}'.format(keys, fname))
+
+                val = report
+
+            # val is nicely formatted, or is the "raw" value for error reporting
+            val = ' '.join(val)
+
+            reported['cost'] = val # keep for saving config to a file
+            setattr(args, attr, runs)
+
+        print('  {}  \t{}  {}'.format(attr, val, err))
+
+    if not good :
+        print()
+        print('ERROR: file not provided, does not exist, or key error (see above)')
+        sys.exit(1)
+
+    return args, reported
+
+#
+# process names (their codes)
+def process_names(args) :
+
+    names = {} # names[code] = human-readible (agreed upon) name
+    codes = {} # codes[name] = code from name (reverse dictionary)
+    alts = {} # alts[alt_name] = code from alternative name
+
+    rows = csv.DictReader(open(args.names,'r'))
+    a, b, c, *_ = rows.fieldnames
+    for row in rows :
+
+        code = row[a].strip()
+        name = normalize(row[b])
+        alt = normalize(row[c])
+
+        names[code] = name
+        codes[name] = code
+        alts[alt] = code
+
+    return codes, alts
+
+#
+# process from the dictionary, extant states matrices
+def process_extants(args, leaves, codes = None, alts = None) :
+
+    extants = {}
+    chars = {}
+    for key in args.extant :
+        fname = args.extant[key]
+        extants[key] = {}
+        
+        rows = csv.DictReader(open(fname,'r'))
+        a, *bs = rows.fieldnames
+        chars[key] = bs
+
+        unfound = []
+        for row in rows :
+
+            species = row[a]
+            if species.startswith('#') : # a "comment"
+                continue
+
+            state = list(row[f].strip() for f in bs)
+            leaf = species
+            if codes :
+                species = normalize(species)
+                if species in codes :
+                    leaf = codes[species]
+                else : # search in alts only after codes
+                    if alts : # never alts without codes, btw..
+                        if species in alts :
+                            leaf = alts[species]
+
+            if leaf in leaves :
+                extants[key][leaf] = state
+            else :
+                unfound.append(species)
+
+        if unfound :
+
+            print()
+            print('  ** in', '{}={}:'.format(key,fname), end = ' ')
+            print('extant species not found in tree (', args.tree, ') :', sep = '')
+            
+            for name in unfound :
+                print('   ',name)
+
+        if not extants[key] :
+
+            print()
+            print('ERROR: no extant states assigned (see above)')
+            sys.exit(1)
+
+    return chars, extants
+
+#
+# obtain column-specific alphabet from the sets of extant states
+def get_alphabet(extants, ms) :
+
+    print()
+    print('alphabets inferred from the columns of extant:')
+    print()
+
+    alphabet = [] # return alphabet
+    for key in sorted(extants) :
+        m = ms[key] # m colums
+        alphas = [] # alphabets seen
+
+        for i in range(m) :
+            ext = extants[key]
+            alpha = set([]) # column-specific alphabet
+
+            for spec in ext :
+                alpha.add(ext[spec][i])
+
+            alphas.append(alpha)
+            alphabet.append(sorted(list(alpha)))
+
+        # report maximal alphabet in containment relation
+        for i in range(m) :
+            for j in range(m) :
+
+                # set i to j if i is subset of j
+                if alphas[i] <= alphas[j] :
+                    alphas[i] = alphas[j]
+
+        cols = [] # columns that alphabets cover
+        for i in range(m) :
+            cols.append(i) # each col has its own by default
+            for j in range(i) :
+
+                # column of first occurrence of this alphabet
+                if alphas[i] == alphas[j] :
+                    cols[i] = j
+                    break
+
+        # set of columns covered by an alphabet
+        colset = defaultdict(list)
+        for i in range(m) :
+            colset[cols[i]].append(i)
+
+        # tack consecutive elements to obtain maximal runs
+        runset = {}
+        for alpha in colset :
+            s = colset[alpha]
+            runs = []
+
+            a = s[0] # start first run
+            for i in range(len(s)) :
+
+                if s[i] > s[i-1] + 1 :
+                    runs.append((a, s[i-1])) # emit run
+                    a = s[i] # start new run
+
+            runs.append((a,s[len(s)-1])) # emit last run
+            runset[alpha] = runs
+
+        # report the alphabets
+        for alpha in runset :
+            r = runset[alpha]
+
+            g = []
+            for a,b in r :
+                assert a <= b # santity..
+
+                if a == b :
+                    g.append(a+1)
+
+                else : # a < b..
+
+                    bb = b+1
+                    if b == ms[key] - 1 :
+                        bb = 'end'
+
+                        if a == 0 : # covers key
+                            continue
+
+                    g.append('{}-{}'.format(a+1,bb)) # subinterval..
+
+            print(' ', key, end = '')
+            print(*g, sep = ',', end = ' = ')
+            print(*sorted(list(alphas[alpha])), sep = ', ')
+
+    return alphabet
+
+#
+# return default cost matrix given an alphabet (complementary identity matrix)
+def default_cost(alphabet, count_missing = True) :
+
+    missing = ['unknown', 'missing', '?', '*', '_']
+
+    cost = {}
+    for i in alphabet :
+        for j in alphabet :
+
+            # the unit matrix with 0's along the diagonal
+            if i == j :
+                cost[(i,j)] = float(0)
+            else :
+                cost[(i,j)] = float(1)
+
+                # account for missing values..
+                if count_missing and j in missing :
+                    cost[(i,j)] = float('inf')
+
+    return cost
+
+#
+# process cost matrix from a given csv file (and alphabet)
+def process_cost(fname, alphabet) :
+
+    cost = default_cost(alphabet)
+
+    rows = csv.DictReader(open(fname,'r'))
+    a, *bs = rows.fieldnames
+    for row in rows :
+
+        i = row[a].strip()
+        for j in bs :
+            j = j.strip()
+            cost[(j,i)] = float(row[j].strip())
+
+    # note: that the internal representation is actually the transpose
+    # of what we take in
+
+    return cost
+
+# build from the runs, the column-specific cost matrix
+def build_cost(args, alphabet, ms) :
+
+    cost = []
+    ai = 0 # alphabet index
+    for key in sorted(args.cost) :
+        runs = args.cost[key]
+        n = len(runs) # n runs
+        m = ms[key] # m columns
+
+        c = None # current column-specific cost matrix
+        j,b = -1,0
+        for i in range(1, m+1) : # because runs start at 1..
+            alpha = alphabet[ai]
+
+            if i > b : # out with the old run, in with the new
+                j += 1
+
+                if j < n :
+                    a,b,f = runs[j]
+                    assert i <= b
+
+                else :
+                    a,b = m+1,m+1 # asymptotic interval..
+
+            if i < a or not f :
+                c = default_cost(alpha)
+            else : # i == a and f..
+                c = process_cost(f, alpha)
+
+            cost.append(c)
+            ai += 1 # increment alphabet index
+
+    return cost
+
+#
+# obtain single extant supermatrix from set of extant states matrices
+def super_extant(chars, leaves, extants) :
+
+    char = []
+    ext = {}
+    for leaf in leaves :
+        ext[leaf] = []
+    # TODO: what if extant matrices represent (or are missing)
+    # different sets of species?  Need to deal with this case..  At
+    # the moment we be conservative and just take the intersection, so
+    # as not to cause any error
+
+    for key in sorted(extants) :
+
+        char += ['{}.{}'.format(key, f) for f in chars[key]]
+        for leaf in leaves :
+
+            if ext[leaf] == None : # species has been nullified..
+                continue
+
+            if leaf in extants[key] :
+                ext[leaf] += extants[key][leaf]
+            else : # nullify, because at least one extant does not represent it
+                ext[leaf] = None
+                
+    extant = {}
+    for key in ext :
+
+        if ext[key] == None : # filter nullifieds
+            continue
+
+        extant[key] = ext[key]
+
+    return char, extant
+
+#
+# Parser
+#----------------------------------------------------------------------
+
+parser = argparse.ArgumentParser(description = '''
+
+   Infer all possible ancestral states for a set of characters in a
+   phylogenetic tree, given extant states and a cost matrix using
+   Sankoff's algorithm, and then compute the correlation between pairs
+   of these characters
+
+''')
+
+parser.add_argument(
+    '-f', '--config', metavar = 'config.csv',
+    help = 'a configuration file of parameters to be passed')
+
+parser.add_argument(
+    '-t', '--tree', metavar = 'tree.nh',
+    help = 'a phylogenetic tree in newick format')
+
+parser.add_argument(
+    '-n', '--names', metavar = 'names.csv',
+    help = 'the names for the codes labelling the tree')
+
+parser.add_argument(
+    '-e', '--extant', nargs='+', metavar = 'extant.csv',
+    help = 'csv file(s) storing states of extant species')
+
+parser.add_argument(
+    '-c', '--cost', nargs='+', metavar = 'cost.csv',
+    help = 'csv file(s) storing (state transition) cost matrix (or matrices)')
+
+parser.add_argument(
+    '-o', '--output', metavar = 'output.csv',
+    help = 'direct the output to a given (csv) file')
+
+parser.add_argument(
+    '-x', '--nexus', metavar = 'ancestral.nexus',
+    help = 'direct tree annotated with ancestral states to given (nexus) file')
+
+parser.add_argument(
+    '-a', '--solutions', metavar = 'solutions/',
+    help = 'directory for all parsimonious reconstructions (per character)')
+
+parser.add_argument(
+    '-u', '--unit', metavar = 'unit.csv',
+    help = 'direct unit transition occurrence information to a given (csv) file')
+
+parser.add_argument(
+    '-p', '--pairwise', metavar = 'pairwise.csv',
+    help = 'direct pairwise transition co-occurrence information to a given (csv) file')
+
+parser.add_argument(
+    '-s', '--save', metavar = 'out_conf.csv',
+    help = 'save the configuration used to a configuration file')
+
+args = parser.parse_args()
+
+if len(sys.argv) < 2:
+    parser.print_help()
+    sys.exit(0)
+
+#
+# Main
+#----------------------------------------------------------------------
+
+# apply a config file
+if args.config :
+    args = apply_config(args)
+
+# process, verify and report on arguments
+args, reported = process_args(args)
+
+# save config used to a file (if applicable)
+if args.save :
+    save_config(args, reported)
+
+# process the tree
+tree = Tree(args.tree, format = 8) # 8 = all names format
+leaves = set(leaf.name for leaf in tree)
+
+# process names (if applicable)
+codes = None
+alts = None
+if args.names :
+    codes, alts = process_names(args)
+
+# process the extant states matrices from their files
+chars, extants = process_extants(args, leaves, codes, alts)
+ms = dict((key, len(chars[key])) for key in chars) # cols in each
+m = sum(ms[key] for key in ms) # m columns in total
+
+# obtain the column-specific alphabet from the set of extant states
+a = get_alphabet(extants, ms)
+k = list(len(x) for x in a) # length of each alphabet
+mk = max(k) # length of longest alphabet
+
+# build the column-specific cost matrix from the runs
+cost = build_cost(args, a, ms)
+
+# stitch extant matrix together for the dynamic programming
+char, extant = super_extant(chars, leaves, extants)
+assert m == len(a) == len(cost) == len(char) # sanity check..
+
+#
+# Sankoff's algorithm...
+#----------------------------------------------------------------------
+
+# upward step
+score = {}
+order = [] # store the postorder
+for node in tree.traverse('postorder') :
+
+    # default case
+    score[node.name] = None
+
+    # base case: initialize parsimony score for a leaf
+    if node.name in extant :
+
+        score[node.name] = numpy.zeros((m,mk))
+        order.append(node.name)
+        for i in range(m) :
+            for j in range(k[i]) :
+
+                if extant[node.name][i] != a[i][j] :
+                    score[node.name][i][j] = float('inf')
+
+    # recursive case: deal with internal node
+    if score[node.name] is None :
+
+        if node.is_leaf() : # no hope for this one now
+            continue
+
+        s = None # by default
+        for child in node.get_children() :
+
+            if score[child.name] is None : # effectively prune
+                continue
+
+            # at least one child is relevant
+            if s is None :
+                s = numpy.zeros((m,mk))
+                order.append(node.name)
+
+            for i in range(m) :
+                ss = score[child.name][i]
+
+                for j in range(k[i]) :
+                    s[i][j] += min(ss[q] + cost[i][(a[i][q],a[i][j])]
+                                   for q in range(k[i]))
+
+        score[node.name] = s
+
+# traceback step
+state = {}
+for node in tree.traverse('preorder') :
+
+    if score[node.name] is None :
+        state[node.name] = None
+        continue
+
+    if node.is_leaf() :
+        state[node.name] = extant[node.name]
+        continue
+
+    state[node.name] = []
+    for i in range(m) :
+
+        if node.is_root() :
+
+            state[node.name].append(a[i][numpy.argmin(list(
+                score[node.name][i][j] for j in range(k[i])))])
+
+        else :
+
+            state[node.name].append(a[i][numpy.argmin(list(
+                score[node.name][i][j] + cost[i][(a[i][j], state[node.up.name][i])]
+                for j in range(k[i])))])
+
+#
+# Postprocessing..
+#----------------------------------------------------------------------
+
+# dump csv file at the end
+if args.output :
+    out = open(args.output,'w')
+
+    print('S\C', *char, sep = ',', file = out)
+    for node in tree.traverse('postorder') :
+
+        if state[node.name] is None :
+            continue
+
+        print(node.name, *state[node.name], sep = ',', file = out)
+
+    out.close()
+
+# annotate tree with ancestral states and dump to nexus file
+if args.nexus :
+
+    for node in tree.traverse('postorder') :
+
+        label = node.name
+        if state[node.name] is not None :
+
+            # characters like '[', ':' and ',' become '_' ?
+            label += ' # ' + ' '.join(str(e) for e in state[node.name])
+
+        node.add_features(label = label)
+
+    # kludge the root in here (ete doesn't output the root ever?)
+    r = tree.get_tree_root().name
+    label = r + ' # ' + ' '.join(str(e) for e in state[r])
+
+    ts = tree.write(format = 8, features = ['label']) # all names, with NHX annotations
+    ts = ts.replace(';', r + '[&&NHX:label=' + label + '];')
+
+    # dump (nexus tree) file at the end
+    nexus = open(args.nexus,'w')
+
+    print('#NEXUS\n\nbegin trees;', file = nexus)
+    print('  tree tree_1 = [&R]', ts, file = nexus)
+    print('end;', file = nexus)
+
+    nexus.close()
+
+#
+# Traceback for all most parsimonious reconstructions (per character..)
+#----------------------------------------------------------------------
+
+if not args.solutions : # "It's just easier this way." -- Marge Simpson
+    sys.exit(0)
+
+os.makedirs(args.solutions, exist_ok=True)
+
+states = {}
+edges = {}
+for i in range(m) :
+    states[i] = {}
+    edges[i] = defaultdict(set)
+
+    for node in tree.traverse('postorder') :
+
+        if score[node.name] is None :
+            continue
+
+        # o.w., set up node
+        states[i][node.name] = set([])
+
+# need this (recursive) function
+def traceback(i, node, q) :
+
+    # need not search further down this branch..
+    if node.name not in states[i] :
+        return
+
+    # base case: leaves have one state (by definition)
+    if node.is_leaf() :
+        j = a[i].index(extant[node.name][i]) # just to be consistent
+        states[i][node.name].add(j)
+
+        # add edge
+        u = node.name, j
+        edges[i][u].add(q)
+
+        return
+
+    # recursive case: deal with internal node
+    mini = min(score[node.name][i][j] + cost[i][(a[i][j], a[i][q])] for j in range(k[i]))
+    for j in range(k[i]) :
+
+        if score[node.name][i][j] + cost[i][(a[i][j], a[i][q])] == mini :
+            states[i][node.name].add(j)
+
+            # add edge
+            u = node.name, j
+            edges[i][u].add(q)
+
+            for child in node.children :
+                traceback(i, child, j)
+
+# kick off the recursion at the root..
+for i in range(m) :
+
+    # just in case..
+    if tree.name not in states[i] :
+        continue
+
+    mini = min(score[tree.name][i][j] for j in range(k[i]))
+    for j in range(k[i]) :
+
+        if score[tree.name][i][j] == mini :
+            states[i][tree.name].add(j)
+
+            for node in tree.children :
+                traceback(i, node, j)
+
+# set up per-character base tree / dynamic part
+base = {}
+dyn = {}
+for i in range(m) :
+    base[i] = {}
+    dyn[i] = {}
+    
+    for node in states[i] :
+        ss = list(states[i][node])
+
+        base[i][node] = None # default value
+        if len(ss) == 1 :
+            base[i][node] = ss[0]
+
+        else : # more than one state, need to go through all
+               # combinations with other nodes which have more than
+               # one state
+            dyn[i][node] = ss
+
+# setup the output for the solutions
+print()
+print('processing all parsimonious ancestral reconstructions per character..')
+print('characters having more than one possible solution:')
+print()
+
+# setup structure for computing pairwise correlation b/w characters
+solutions = {}
+nsolns = {} # number of solutions per character
+for c in char :
+    solutions[c] = {}
+
+    for node in order :
+        solutions[c][node] = []
+
+# loop through the dynamic part in Gray code order, outputting..
+for i in range(m) :
+
+    # set up file path and solutions array
+    path = args.solutions + '/character-' + char[i] + '.csv'
+    solns = []
+
+    # pack dyn part into an array for efficiency
+    suborder = list(dyn[i].keys())
+    n = len(suborder)
+    s = [len(dyn[i][key]) - 1 for key in suborder]
+
+    # report upper bound on number of solutions
+    b = 1
+    for j in s :
+        b *= (j+1)
+
+    if b > 1 :
+        print('  ', char[i], ': ', b, ' possibilit', 'ies' if b > 1 else 'y', '.. ', sep='', end = '', flush=True)
+
+    # setup parity array and first combination
+    p = n * [True] # True: move foward (False: move backward)
+    c = n * [0] # inital combo: all 0's (first element of each set)
+    
+    # fill in base set with first combo
+    for j in range(n) :
+        key = suborder[j]
+        val = dyn[i][key][c[j]]
+        base[i][key] = val
+
+    # setup the candidate (edge) set from first combo
+    cand = set([])
+    for node in tree.traverse('postorder') :
+
+        if score[node.name] is None :
+            continue
+
+        if node.is_root() :
+            continue
+
+        u = node.name, base[i][node.name]
+        v = base[i][node.up.name]
+
+        if v in edges[i][u] :
+            cand.add(node.name)
+
+    # emit initial combo, if valid
+    count = 1
+    assert len(cand) < len(order)
+    if len(cand) == len(order) - 1 : # a spanning tree
+        solns.append(list(a[i][base[i][q]] for q in order))
+
+        for q in order : # add to structure
+            solutions[char[i]][q].append(a[i][base[i][q]])
+
+        count += 1
+
+    # update combo / candidate edge set in Gray code order
+    has_next = True
+    while has_next :
+
+        # look for the smallest index to increment/decrement
+        has_next = False
+        for j in range(n) :
+
+            if p[j] : # currently moving forward..
+
+                if c[j] < s[j] :
+                    c[j] += 1
+                    has_next = True
+
+            else : # ..moving backward
+
+                if c[j] > 0 :
+                    c[j] -= 1
+                    has_next = True
+
+            # we did manage to increment/decrement at position j..
+            if has_next :
+
+                # update the base set
+                key = suborder[j]
+                val = dyn[i][key][c[j]]
+                base[i][key] = val
+
+                # update candidate set
+                node, *_ = tree.search_nodes(name = key)
+                for child in node.children : # children..
+                    name = child.name
+
+                    if score[name] is None :
+                        continue
+
+                    u = name, base[i][name]
+
+                    if val in edges[i][u] :
+                        cand.add(name)
+                    else :
+                        cand.discard(name)
+
+                if not node.is_root() : # ..parent
+                    u = key, val
+                    v = base[i][node.up.name]
+
+                    if v in edges[i][u] :
+                        cand.add(key)
+                    else :
+                        cand.discard(key)
+
+                # emit the combo, if valid
+                assert len(cand) < len(order)
+                if len(cand) == len(order) - 1 :
+                    solns.append(list(a[i][base[i][q]] for q in order))
+
+                    for q in order : # add to structure
+                        solutions[char[i]][q].append(a[i][base[i][q]])
+
+                    count += 1
+
+                # cascade
+                for q in range(j) :
+                    p[q] = not p[q]
+
+                break
+
+    nsolns[char[i]] = count - 1 # number of solutions for character
+    if b > 1 :
+        print(count - 1, ' solution', 's' if count - 1 > 1 else '', sep='')
+
+    # dump solutions to file
+    solnsfile = open(path, 'w')
+    ns = len(solns)
+    for ind, q in enumerate(order) :
+
+        print(q, *(solns[j][ind] for j in range(ns)), sep = ',', file = solnsfile)
+
+    solnsfile.close()
+
+#
+# Compute transition (branch) co-occurence for each pair of characters
+#----------------------------------------------------------------------
+
+unit = {} # unit transition occurrence
+unit_b = {}
+num = {}
+pairs = {} # pairwise transition co-occurrence
+pairs_b = {}
+if args.unit :
+
+    # set up dictionaries
+    for i in range(m) :
+        unit[i] = {}
+        unit_b[i] = {}
+        num[i] = defaultdict(int)
+        pairs[i] = {}
+        pairs_b[i] = {}
+
+        # unit
+        for si in range(nsolns[char[i]]) :
+            unit[i][si] = defaultdict(int)
+            unit_b[i][si] = defaultdict(list)
+
+        if not args.pairwise :
+            continue
+
+        # pairwise
+        for j in range(i) :
+            pairs[i][j] = defaultdict(int)
+            pairs_b[i][j] = defaultdict(list)
+
+    # go over the branches of the tree
+    for node in tree.traverse('postorder') :
+
+        if score[node.name] is None :
+            continue
+
+        if node.is_root() :
+            continue
+
+        u = node.name
+        v = node.up.name
+
+        for i in range(m) :
+            sci = solutions[char[i]]
+
+            for si in range(nsolns[char[i]]) :
+                ai = sci[v][si]
+                bi = sci[u][si]
+
+                # note only the changes (in either case)
+                if ai == bi :
+                    continue
+
+                ti = ai, bi
+                num[i][ti] += 1
+                unit[i][si][ti] += 1
+                unit_b[i][si][ti].append((v,u))
+
+                if not args.pairwise :
+                    continue
+
+                # pairwise...
+                for j in range(i) :
+                    scj = solutions[char[j]]
+
+                    for sj in range(nsolns[char[j]]) :
+                        aj = scj[v][sj]
+                        bj = scj[u][sj]
+
+                        # note only the changes
+                        if aj == bj :
+                            continue
+
+                        t = ai, bi, aj, bj
+                        b = si+1, sj+1, v, u
+                        pairs[i][j][t] += 1
+                        pairs_b[i][j][t].append(b)
+
+    # dump unit transition occurrence to file
+    unit_h = open(args.unit,'w')
+    header = ['Char', 'Soln', 'Transition', 'Count', 'Branches']
+    print(*header, sep = ',', file = unit_h)
+
+    for i in range(m) :
+        for si in range(nsolns[char[i]]) :
+            for a,b in sorted(unit[i][si]) :
+
+                t = '{} -> {}'.format(a,b)
+                c = unit[i][si][(a,b)]
+                bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit_b[i][si][(a,b)])
+                print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
+
+if args.pairwise :
+
+    # dump pairwise transition co-occurrence to file
+    pairs_h = open(args.pairwise,'w')
+    header = ['Char_1', 'Char_2', 'Transition_1', 'Transition_2']
+    header += ['Count', 'Correlation', 'Branches']
+    print(*header, sep = ',', file = pairs_h)
+
+    for i in range(m) :
+        for j in range(i) :
+            for ai, bi, aj, bj in sorted(pairs[i][j]) :
+                
+                count = pairs[i][j][(ai,bi,aj,bj)]
+                prod = num[i][(ai,bi)] * num[j][(aj,bj)]
+                corr = count / float(prod)
+
+                ti = '{} -> {}'.format(ai,bi)
+                tj = '{} -> {}'.format(aj,bj)
+                pbs = pairs_b[i][j][(ai,bi,aj,bj)]
+                bs = '; '.join('{}/{}: {} -> {}'.format(*b) for b in pbs)
+
+                coll = char[i], char[j], ti, tj, count, corr, bs
+                print(*coll, sep = ',', file = pairs_h)
