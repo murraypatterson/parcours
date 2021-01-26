@@ -6,7 +6,22 @@ Infer all possible assignments of ancestral states for a set of
 characters in a phylogenetic tree, given extant states and a cost
 matrix using Sankoff's algorithm, and then compute the correlation, as
 determined by their (co-) occurrence patterns among their respective
-ancestral assignments
+ancestral assignments.
+
+# how to run
+
+First, make sure that you have Python3 and NumPy as well as the [ETE
+Toolkit](http://etetoolkit.org/).  The latter two can be installed on
+most systems with via
+
+    pip3 install numpy
+    pip3 install ete3
+
+respectively, if you have `pip`, or through Conda.  Once these
+prerequisites are met, simply run the `parcours` executable to run the
+tool.  For the full set of parameters of `parcours`, type
+
+    ./parcours -h
 
 # quick example
 
