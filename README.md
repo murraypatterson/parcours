@@ -50,3 +50,13 @@ the `clemente/` directory and type
 to generate all solutions, correlations, etc.  The three solutions
 implied by Fig. 2 of the above article are then found in the
 `solutions/` subdirectory.
+
+# replicating the experiments
+
+Finally, to obtain the correlation values obtained in Table 1, go to
+the `felidae/` directory and type
+
+    ../parcours -f config.csv
+
+These values will be found in the `pairwise.csv` file.  Note that the
+pipeline for computing _significant_ correlation is coming soon..
