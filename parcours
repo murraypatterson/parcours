@@ -721,6 +721,10 @@ parser.add_argument(
     help = 'direct the output to a given (csv) file')
 
 parser.add_argument(
+    '-r', '--scores', metavar = 'scores.csv',
+    help = 'direct scores for most parsimonious solutions(s) to given (csv) file')
+
+parser.add_argument(
     '-x', '--nexus', metavar = 'ancestral.nexus',
     help = 'direct tree annotated with ancestral states to given (nexus) file')
 
@@ -880,6 +884,19 @@ if args.output :
         print(node.name, *state[node.name], sep = ',', file = out)
 
     out.close()
+
+# dump scores at the end
+if args.scores :
+    scores_file = open(args.scores,'w')
+
+    scores = list(min(score[tree.get_tree_root().name][i][j]
+                for j in range(k[i]))
+                  for i in range(m))
+
+    print('Character', *char, sep = ',', file = scores_file)
+    print('Score', *scores, sep = ',', file = scores_file)
+
+    scores_file.close()
 
 # annotate tree with ancestral states and dump to nexus file
 if args.nexus :
