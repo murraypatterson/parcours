@@ -1158,32 +1158,24 @@ for i in range(m) :
 #----------------------------------------------------------------------
 
 unit = {} # unit transition occurrence
-unit_b = {}
-num = {}
 pairs = {} # pairwise transition co-occurrence
-pairs_b = {}
 if args.unit :
 
     # set up dictionaries
     for i in range(m) :
         unit[i] = {}
-        unit_b[i] = {}
-        num[i] = defaultdict(int)
         pairs[i] = {}
-        pairs_b[i] = {}
 
         # unit
         for si in range(nsolns[char[i]]) :
-            unit[i][si] = defaultdict(int)
-            unit_b[i][si] = defaultdict(list)
+            unit[i][si] = defaultdict(list)
 
         if not args.pairwise :
             continue
 
         # pairwise
         for j in range(i) :
-            pairs[i][j] = defaultdict(int)
-            pairs_b[i][j] = defaultdict(list)
+            pairs[i][j] = defaultdict(list)
 
     # go over the branches of the tree
     for node in tree.traverse('postorder') :
@@ -1209,9 +1201,7 @@ if args.unit :
                     continue
 
                 ti = ai, bi
-                num[i][ti] += 1
-                unit[i][si][ti] += 1
-                unit_b[i][si][ti].append((v,u))
+                unit[i][si][ti].append((v,u))
 
                 if not args.pairwise :
                     continue
@@ -1230,8 +1220,7 @@ if args.unit :
 
                         t = ai, bi, aj, bj
                         b = si+1, sj+1, v, u
-                        pairs[i][j][t] += 1
-                        pairs_b[i][j][t].append(b)
+                        pairs[i][j][t].append(b)
 
     # dump unit transition occurrence to file
     unit_h = open(args.unit,'w')
@@ -1243,8 +1232,8 @@ if args.unit :
             for a,b in sorted(unit[i][si]) :
 
                 t = '{} -> {}'.format(a,b)
-                c = unit[i][si][(a,b)]
-                bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit_b[i][si][(a,b)])
+                c = len(unit[i][si][(a,b)])
+                bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(a,b)])
                 print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
 
 if args.pairwise :
@@ -1257,16 +1246,27 @@ if args.pairwise :
 
     for i in range(m) :
         for j in range(i) :
-            for ai, bi, aj, bj in sorted(pairs[i][j]) :
-                
-                count = pairs[i][j][(ai,bi,aj,bj)]
-                prod = num[i][(ai,bi)] * num[j][(aj,bj)]
-                corr = count / float(prod)
 
-                ti = '{} -> {}'.format(ai,bi)
-                tj = '{} -> {}'.format(aj,bj)
-                pbs = pairs_b[i][j][(ai,bi,aj,bj)]
+            # those where the intersection (numerator) is non-empty
+            for ai, bi, aj, bj in sorted(pairs[i][j]) :
+
+                ti = ai, bi
+                tj = aj, bj
+                t = ai, bi, aj, bj
+
+                count = len(pairs[i][j][t])
+                denom = 0
+
+                for si in range(nsolns[char[i]]) :
+                    for sj in range(nsolns[char[j]]) :
+                        denom += len(set(unit[i][si][ti] + unit[j][sj][tj]))
+
+                correlation = count / float(denom)
+
+                tai = '{} -> {}'.format(ai,bi)
+                taj = '{} -> {}'.format(aj,bj)
+                pbs = pairs[i][j][t]
                 bs = '; '.join('{}/{}: {} -> {}'.format(*b) for b in pbs)
 
-                coll = char[i], char[j], ti, tj, count, corr, bs
+                coll = char[i], char[j], tai, taj, count, correlation, bs
                 print(*coll, sep = ',', file = pairs_h)
