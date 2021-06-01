@@ -12,6 +12,7 @@ import csv
 from ete3 import Tree
 from collections import defaultdict
 import numpy
+from multiset import Multiset
 
 #
 # "normalize" a name (lower case, single-spaced, etc.)
@@ -1175,24 +1176,15 @@ for i in range(m) :
 #----------------------------------------------------------------------
 
 unit = {} # unit transition occurrence
-pairs = {} # pairwise transition co-occurrence
 if args.unit :
 
     # set up dictionaries
     for i in range(m) :
         unit[i] = {}
-        pairs[i] = {}
 
         # unit
         for si in range(nsolns[char[i]]) :
             unit[i][si] = defaultdict(list)
-
-        if not args.pairwise :
-            continue
-
-        # pairwise
-        for j in range(i) :
-            pairs[i][j] = defaultdict(list)
 
     # go over the branches of the tree
     for node in tree.traverse('postorder') :
@@ -1220,25 +1212,6 @@ if args.unit :
                 ti = ai, bi
                 unit[i][si][ti].append((v,u))
 
-                if not args.pairwise :
-                    continue
-
-                # pairwise...
-                for j in range(i) :
-                    scj = solutions[char[j]]
-
-                    for sj in range(nsolns[char[j]]) :
-                        aj = scj[v][sj]
-                        bj = scj[u][sj]
-
-                        # note only the changes
-                        if aj == bj :
-                            continue
-
-                        t = ai, bi, aj, bj
-                        b = si+1, sj+1, v, u
-                        pairs[i][j][t].append(b)
-
     # dump unit transition occurrence to file
     unit_h = open(args.unit,'w')
     header = ['Char', 'Soln', 'Transition', 'Count', 'Branches']
@@ -1255,35 +1228,53 @@ if args.unit :
 
 if args.pairwise :
 
+    # collapse unit transition occurrences into single "consensus map"
+    c_map = {}
+    for i in range(m) :
+
+        c = defaultdict(list)
+        for si in range(nsolns[char[i]]) :
+
+            for a,b in unit[i][si] :
+                c[(a,b)] += unit[i][si][(a,b)]
+
+        # store as multiset for (effectively) weighted Jaccard index
+        c_map[i] = {}
+        for a,b in c :
+            c_map[i][(a,b)] = Multiset(c[(a,b)])
+
     # dump pairwise transition co-occurrence to file
     pairs_h = open(args.pairwise,'w')
     header = ['Char_1', 'Char_2', 'Transition_1', 'Transition_2']
-    header += ['Count', 'Correlation', 'Branches']
+    header += ['Count', 'Correlation'] + ['A & B', 'A | B']
     print(*header, sep = ',', file = pairs_h)
 
     for i in range(m) :
+        cmi = c_map[i]
+
         for j in range(i) :
+            cmj = c_map[j]
 
-            # those where the intersection (numerator) is non-empty
-            for ai, bi, aj, bj in sorted(pairs[i][j]) :
+            for ai, bi in sorted(cmi) :
+                A = cmi[(ai,bi)]
 
-                ti = ai, bi
-                tj = aj, bj
-                t = ai, bi, aj, bj
+                for aj, bj in sorted(cmj) :
+                    B = cmj[(aj,bj)]
 
-                count = len(pairs[i][j][t])
-                denom = 0
+                    inter = A & B
 
-                for si in range(nsolns[char[i]]) :
-                    for sj in range(nsolns[char[j]]) :
-                        denom += len(set(unit[i][si][ti] + unit[j][sj][tj]))
+                    # note only the non-zero correlations
+                    if not inter :
+                        continue
 
-                correlation = count / float(denom)
+                    union = A | B
+                    correlation = len(inter) / float(len(union))
 
-                tai = '{} -> {}'.format(ai,bi)
-                taj = '{} -> {}'.format(aj,bj)
-                pbs = pairs[i][j][t]
-                bs = '; '.join('{}/{}: {} -> {}'.format(*b) for b in pbs)
+                    ti = '{} -> {}'.format(ai,bi)
+                    tj = '{} -> {}'.format(aj,bj)
 
-                coll = char[i], char[j], tai, taj, count, correlation, bs
-                print(*coll, sep = ',', file = pairs_h)
+                    aib = '; '.join('{} -> {}'.format(x,y) for x,y in inter)
+                    aub = '; '.join('{} -> {}'.format(x,y) for x,y in union)
+
+                    coll = char[i], char[j], ti, tj, len(inter), correlation, aib, aub
+                    print(*coll, sep = ',', file = pairs_h)
