@@ -1229,7 +1229,11 @@ if args.unit :
                 bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(a,b)])
                 print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
 
-if args.pairwise :
+
+#
+# from unit transitions occurrences (unit), compute pairwise
+# transition co-occurences and output to (filename)
+def pairwise_to_file(filename, m, char, nsolns, unit, branches = False) :
 
     # collapse unit transition occurrences into single "consensus map"
     c_map = {}
@@ -1247,9 +1251,10 @@ if args.pairwise :
             c_map[i][(a,b)] = Multiset(c[(a,b)])
 
     # dump pairwise transition co-occurrence to file
-    pairs_h = open(args.pairwise,'w')
+    pairs_h = open(filename,'w')
     header = ['Char_1', 'Char_2', 'Transition_1', 'Transition_2']
-    header += ['Count', 'Correlation'] + ['A & B', 'A | B']
+    header += ['Count', 'Correlation', 'Jaccard']
+    header += ['C_Map_1 & C_Map_2', 'C_Map_1', 'C_Map_2', 'C_Map_1 | C_Map_2']
     print(*header, sep = ',', file = pairs_h)
 
     for i in range(m) :
@@ -1271,13 +1276,25 @@ if args.pairwise :
                         continue
 
                     union = A | B
-                    correlation = len(inter) / float(len(union))
+                    correlation = len(inter) / float(len(union)) # correlation is weighted Jaccard index
+                    jaccard = len(set(inter)) / float(len(set(union)))
 
                     ti = '{} -> {}'.format(ai,bi)
                     tj = '{} -> {}'.format(aj,bj)
 
                     aib = '; '.join('{} -> {}'.format(x,y) for x,y in inter)
+                    a = '; '.join('{} -> {}'.format(x,y) for x,y in A)
+                    b = '; '.join('{} -> {}'.format(x,y) for x,y in B)
                     aub = '; '.join('{} -> {}'.format(x,y) for x,y in union)
 
-                    coll = char[i], char[j], ti, tj, len(inter), correlation, aib, aub
+                    coll = char[i], char[j], ti, tj, len(inter), correlation, jaccard
+                    if branches :
+                        coll += aib, a, b, aub
+
                     print(*coll, sep = ',', file = pairs_h)
+
+
+if args.pairwise :
+
+    pairwise_to_file(args.pairwise, m, char, nsolns, unit, True)
+
