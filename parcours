@@ -1165,11 +1165,14 @@ for i in range(m) :
     # dump solutions to file
     solnsfile = open(path, 'w')
     ns = len(solns)
+    print('Sp.\Soln.', *range(1,ns+1), sep = ',', file = solnsfile)
     for ind, q in enumerate(order) :
 
         print(q, *(solns[j][ind] for j in range(ns)), sep = ',', file = solnsfile)
 
     solnsfile.close()
+
+print() # one last empty line
 
 #
 # Compute transition (branch) co-occurence for each pair of characters
