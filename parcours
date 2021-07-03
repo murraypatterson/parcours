@@ -1298,3 +1298,166 @@ if args.pairwise :
 
     pairwise_to_file(args.pairwise, m, char, nsolns, unit, True)
 
+
+#
+# experimental...
+#----------------------------------------------------------------------
+
+experimental = False
+#experimental = True
+if not experimental :
+    sys.exit(0)
+
+def containment_check(solutions, ns, c, mask) :
+
+    solns = list(range(ns))
+    compl_mask = sorted(list(set(solns) - set(mask)))
+    assert set(mask) | set(compl_mask) == set(solns)
+
+    print(' ', mask, '+', compl_mask)
+
+    for bc in compl_mask :
+        for b in mask :
+
+            equal = True # innocent until proven guilty
+            for q in suborder :
+
+                if solutions[c][q][bc] != solutions[c][q][b] :
+                    equal = False
+
+            # if it makes it through the gauntlet..
+            if equal :
+                return
+
+        print('WARNING: character {} solution {} is not represented'.format(c,bc+1))
+
+
+roots = {}
+present = ['present', '1']
+present += ['diurnal', 'variable', 'medium', 'large', 'social', 'both'] # ad hoc
+
+subnsolns = {}
+subsolns = {}
+for i in range(m) :
+    c = char[i]
+
+    print('character =', c)
+
+    subsolns[c] = {}
+
+    leaves = []
+    for leaf in extant :
+
+        if extant[leaf][i] in present :
+            leaves.append(leaf)
+
+    print('  leaves of subtree =', sorted(list(leaves)))
+
+    # obtain smallest subtree containing all leaves w/ character
+    subtree = tree.get_common_ancestor(leaves)
+    print('  subroot =', subtree.name)
+    roots[i] = subtree.name
+
+    suborder = [] # should be an interval of order
+    for node in subtree.traverse('postorder') :
+
+        if score[node.name] is None :
+            continue
+
+        # o.w., add it to the suborder
+        suborder.append(node.name)
+
+    x = order.index(suborder[0])
+    y = x + len(suborder)
+    assert suborder == order[x:y]
+    subcompl = order[:x] + order[y:]
+
+    ns = nsolns[c]
+    sci = solutions[c]
+    mask = set(range(ns))
+
+    for q in subcompl :
+        for si in range(ns) :
+
+            # flag solutions that "spill" out of the subtree
+            if sci[q][si] in present :
+                mask.discard(si)
+
+    mask = sorted(list(mask))
+
+    subnsolns[c] = len(mask)
+
+    containment_check(solutions, ns, c, mask)
+
+    path = args.solutions + '/character-' + c + '-subsoln.csv'
+    subfile = open(path,'w')
+
+    header = list('{} ({})'.format(s+1,o+1) for s,o in enumerate(mask))
+    print('Sp.\SubSoln. (Orig.)', *header, sep = ',', file = subfile)
+
+    for q in order :
+        subsolns[c][q] = list(solutions[c][q][b] for b in mask)
+
+        print(q, *subsolns[c][q], sep = ',', file = subfile)
+
+    subfile.close()
+
+
+subunit = {} # subtree-specific unit transition occurrence
+if args.unit :
+
+    # set up dictionaries
+    for i in range(m) :
+        c = char[i]
+        sns = subnsolns[c]
+        subunit[i] = {}
+
+        # subunit
+        for si in range(sns) :
+            subunit[i][si] = defaultdict(list)
+
+        # go over branches of this tree
+        for node in tree.traverse('postorder') :
+
+            if score[node.name] is None :
+                continue
+
+            if node.is_root() :
+                continue
+
+            u = node.name
+            v = node.up.name
+
+            sci = subsolns[c]
+
+            for si in range(sns) :
+                ai = sci[v][si]
+                bi = sci[u][si]
+
+                # note only the changes
+                if ai == bi :
+                    continue
+
+                ti = ai, bi
+                subunit[i][si][ti].append((v,u))
+
+    # dump sub_unit transition occurence to file
+    subunit_h = open('sub-'+args.unit,'w')
+    header = ['Char', 'Soln', 'Transition', 'Count', 'Branches']
+    print(*header, sep = ',', file = subunit_h)
+
+    for i in range(m) :
+        for si in range(subnsolns[char[i]]) :
+            for a,b in sorted(subunit[i][si]) :
+
+                t = '{} -> {}'.format(a,b)
+                c = len(subunit[i][si][(a,b)])
+                bs = '; '.join('{} -> {}'.format(x,y) for x,y in subunit[i][si][(a,b)])
+                print(char[i], si+1, t, c, bs, sep = ',', file = subunit_h)
+
+    subunit_h.close()
+
+
+if args.pairwise :
+
+    pairwise_to_file('sub-'+args.pairwise, m, char, subnsolns, subunit, True)
