@@ -4,9 +4,9 @@ PARsimonious CO-occURrenceS
 
 Infer all possible assignments of ancestral states for a set of
 characters in a phylogenetic tree, given extant states and a cost
-matrix using Sankoff's algorithm, and then compute the correlation, as
-determined by their (co-) occurrence patterns among their respective
-ancestral assignments.
+matrix using Sankoff's algorithm, and then compute pairwise
+correlation, as determined by (co-) occurrence patterns among
+respective ancestral assignments.
 
 # how to run
 
@@ -43,19 +43,14 @@ For another example with more than two states, the example used in
 Fig. 2 of [Clemente et al.,
 2009](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2677398/) to
 illustrate the structure that stores all parsimonious solutions, go to
-the `clemente/` directory and type
+the `clemente/` directory and type `../parcours -f config.csv`.  The
+three solutions implied by Fig. 2 of the above article are then found
+in the `solutions/` subdirectory.
 
-    ../parcours -f config.csv
+# felid vocalizations
 
-The three solutions implied by Fig. 2 of the above article are then
-found in the `solutions/` subdirectory.
-
-# replicating the experiments
-
-Finally, to obtain the correlation values obtained in Table 1, go to
-the `felidae/` directory and type
-
-    ../parcours -f config.csv
-
-These values will be found in the `pairwise.csv` file.  Note that the
-pipeline for computing _significant_ correlation is coming soon..
+Go to the `felidae/` directory and type `../parcours -f config.csv` to
+obtain pairwise correlations among 14 felid vocalizations in
+`extant.csv` (Sunquist and Sunquist, 2002) within the phylogenetic
+tree `felidae.nh` (Johnson et al., 2006) with Leopard and Jaguar
+"swapped" (Figueiro et al.)
