@@ -1,5 +1,5 @@
-Species,puff,roar
-Lion,present,present
-Jaguar,absent,present
-Leopard,present,present
-Tiger,absent,absent
+Species,weight,dental
+Puma,high,30
+Jaguarundi,low,30
+Cheetah,high,30
+Pallas,low,28
