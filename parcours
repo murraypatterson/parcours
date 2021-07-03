@@ -1336,6 +1336,24 @@ roots = {}
 present = ['present', '1']
 present += ['diurnal', 'variable', 'medium', 'large', 'social', 'both'] # ad hoc
 
+soft = False
+hard = False
+extremiste = False
+
+print()
+print()
+print('*** DEBUG information ***')
+print()
+
+if soft :
+    print('** soft solution **')
+
+if hard :
+    print('** hard solution **')
+
+if extremiste :
+    print('** extreme (-ly contrived?) solution **')
+
 subnsolns = {}
 subsolns = {}
 for i in range(m) :
@@ -1384,6 +1402,25 @@ for i in range(m) :
                 mask.discard(si)
 
     mask = sorted(list(mask))
+
+    if soft :
+        if c == 'A.Gurgle' :
+            print('** opening up', c)
+            mask = list(range(ns))
+
+    if hard :
+        if c == 'A.Gurgle' :
+            print('** pinning {} to the root'.format(c))
+            mask = list([2])
+
+    if extremiste :
+        if c == 'A.Gurgle' :
+            print('** pinning {} to the root'.format(c))
+            mask = list([2])
+
+        if c == 'A.Prusten' :
+            print('** pinning {} to pantherinae'.format(c))
+            mask = list([1,2])
 
     subnsolns[c] = len(mask)
 
