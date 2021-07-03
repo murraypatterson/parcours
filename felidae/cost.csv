@@ -1,4 +1,4 @@
 Cost,absent,present,unknown
 absent,0,1,1
 present,1,0,1
-unknown,inf,inf,1
+unknown,inf,inf,0
