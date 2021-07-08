@@ -13,6 +13,9 @@ from ete3 import Tree
 from collections import defaultdict
 import numpy
 from multiset import Multiset
+import tkinter as tk
+from tkinter import filedialog
+from tkinter.filedialog import askopenfile
 
 #
 # "normalize" a name (lower case, single-spaced, etc.)
@@ -54,6 +57,64 @@ def apply_config(args) :
                 setattr(args, a, conf[a])
 
     return args
+
+def file_selection_gui() :
+
+    my_w = tk.Tk()
+    my_w.geometry("300x300")  # Size of the window 
+    my_w.title('Ancestral Information')
+    my_font1=('times', 18, 'bold')
+
+    l1 = tk.Label(my_w,text='Upload File',width=30,font=my_font1)  
+    l1.grid(row=1,column=1)
+
+    b1 = tk.Button(my_w, text='Upload File', 
+                   width=20,command = lambda:upload_file())
+    b1.grid(row=2,column=1)
+
+    my_str = tk.StringVar()
+    l2 = tk.Label(my_w,textvariable=my_str,fg='red' )
+    l2.grid(row=3,column=1) 
+
+    b2 = tk.Button(my_w, text='Upload File', 
+                   width=20,command = lambda:upload_file())
+    b2.grid(row=4,column=1)
+
+    my_str2 = tk.StringVar()
+    l3 = tk.Label(my_w,textvariable=my_str2,fg='blue' )
+    l3.grid(row=5,column=1) 
+    #my_str2.set("")
+
+    b2 = tk.Button(my_w, text='Run', 
+                   width=20,command = lambda : close_window())
+    b2.grid(row=6,column=1)
+    
+    def close_window() :
+        my_w.destroy()
+
+    def upload_file():
+        file = filedialog.askopenfilename(initialdir = "/",
+                                          title = "Select a NH File",
+                                          filetypes = (("NH files",
+                                                        ".nh"),
+                                                       ("all files",
+                                                        "*.*")))
+        file2 = filedialog.askopenfilename(initialdir = "/",
+                                          title = "Select a CSV file",
+                                          filetypes = (("CSV files",
+                                                        ".csv"),
+                                                       ("all files",
+                                                        "*.*")))
+        if(file):
+            my_str.set(file)
+
+        if(file2):
+            my_str2.set(file2)
+    
+    my_w.mainloop()  # Keep the window open
+
+    return my_str.get(), my_str2.get()
+
 
 #
 # save configuration to a file
