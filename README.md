@@ -8,6 +8,16 @@ matrix using Sankoff's algorithm, and then compute pairwise
 correlation, as determined by (co-) occurrence patterns among
 respective ancestral assignments.
 
+## Citation
+
+Brendan Smith, Cristian Navarro-Martinez, Rebecca Buonpane, S. Ashley
+Byun\* and Murray Patterson\*. Correlated Evolution in the Small
+Parsimony Framework. In the *17th International Symposium on
+Bioinformatics Research and Applications (ISBRA, Shenzhen, China,
+2021)*, volume 13064 of LNCS,
+608--619. 2021. [doi:10.1007/978-3-030-91415-8_51](https://doi.org/10.1007/978-3-030-91415-8_51).
+
+
 # how to run
 
 First, make sure that you have Python3 and NumPy as well as the [ETE
