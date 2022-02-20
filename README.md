@@ -11,11 +11,12 @@ respective ancestral assignments.
 # how to run
 
 First, make sure that you have Python3 and NumPy as well as the [ETE
-Toolkit](http://etetoolkit.org/).  The latter two can be installed on
+Toolkit](http://etetoolkit.org/), and Multiset.  The latter three can be installed on
 most systems via
 
     pip3 install numpy
     pip3 install ete3
+    pip3 install multiset
 
 respectively, if you have `pip`, or through Conda.  Once these
 prerequisites are met, simply run the `parcours` executable to run the
