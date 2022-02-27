@@ -23,7 +23,7 @@ def get_transitions(alpha) :
 #
 # bars and stars with a restriction for each bar --- adapted from:
 # https://stackoverflow.com/questions/28965734/general-bars-and-stars
-def bars_and_stars(bars, stars, restriction, prefix = []) :
+def bars_and_stars(bars, stars, restriction = [], prefix = []) :
 
     if stars == 0 :
         yield prefix + [0]*(bars+1)
@@ -33,7 +33,13 @@ def bars_and_stars(bars, stars, restriction, prefix = []) :
         yield prefix + [stars]
         return
 
-    for i in range(min(restriction[len(prefix)]+1, stars+1)) :
+    bound = stars + 1
+    depth = len(prefix)
+    if depth < len(restriction) :
+        if restriction[depth] + 1 < bound :
+            bound = restriction[depth] + 1
+
+    for i in range(bound) :
         yield from bars_and_stars(bars-1, stars-i, restriction, prefix + [i])
 
 #
