@@ -11,29 +11,14 @@ def get_alphabet(lines) :
     for line in lines :
         alpha.add(line.strip())
 
-    return sorted(list(alpha))
+    return sorted(alpha)
 
 #
 # obtain transitions from an alphabet: number of pairs (a,b) where b
 # is different from a
 def get_transitions(alpha) :
 
-    return [(a,b) for a in alpha for b in alpha if b != a]
-
-#
-# project a counts dictionary down to a source sigma: keep track of
-# only those counts which originate from sigma.  Note that this is
-# effectively a dictionary from the alphabet to positive integers
-def project(rs, sigma) :
-
-    p = {}
-    for r in rs :
-        a, b = r
-
-        if a == sigma :
-            p[b] = rs[r]
-
-    return p
+    return sorted([(a,b) for a in alpha for b in alpha if b != a])
 
 #
 # bars and stars with a restriction for each bar --- adapted from:
@@ -70,28 +55,37 @@ def w(u, rs, sigma) :
             return []
 
     else :
+
         v = u.children
         n = len(v)
 
-        p = project(rs, sigma)
-        restriction = [p[x] for x in sorted(p)]
-        
-        for s in bars_and_stars(k-1, n, restriction) :
+        to = sorted(set(alpha) - set([sigma]))
+        p = [rs[(sigma,x)] for x in to]
+
+        for s in bars_and_stars(k-1, n, p) :
+
+            rsp = {r:rs[r] for r in rs}
+            for i in range(len(to)-1) :
+                rsp[(sigma,to[i])] -= s[i]
+
             print(s)
+            print(rsp)
+            
+
 
 # Main
 
 tree = Tree(sys.argv[1], format = 8)
-a = get_alphabet(open(sys.argv[2],'r'))
-k = len(a)
-ts = get_transitions(a)
+alpha = get_alphabet(open(sys.argv[2],'r'))
+k = len(alpha)
+ts = get_transitions(alpha)
 rs = {t:0 for t in ts}
 rs[('a','b')] = 1
 rs[('a','c')] = 0
 
 print(tree)
 print()
-print(a)
+print(alpha)
 print()
 print(ts)
 print()
