@@ -1,6 +1,8 @@
 
 import sys
 from ete3 import Tree
+from itertools import product
+from sympy.utilities.iterables import multiset_permutations
 
 #
 # obtain the alphabet: set of unique string from a set of lines
@@ -46,11 +48,21 @@ def bars_and_stars(bars, stars, restriction = [], prefix = []) :
 # if any element of counts dictionary rs is non-zero
 def non_zero(rs) :
 
-    for r in rs :
-        if rs[r] > 0 :
+    for t in ts :
+        if rs[t] > 0 :
             return False
 
     return True
+
+#
+# produce a multiset from a set a and its multiplicities
+def multi(a, ms) :
+
+    s = []
+    for i in range(len(a)) :
+        s += ms[i] * [a[i]]
+
+    return s
 
 #
 # W_u(r_1, ..., r_m | sigma)
@@ -66,18 +78,26 @@ def w(u, rs, sigma) :
         n = len(v)
 
         to = sorted(set(alpha) - set([sigma]))
-        p = [rs[(sigma,x)] for x in to]
+        c = [rs[(sigma,x)] for x in to]
 
-        for s in bars_and_stars(k-1, n, p) :
+        # s \in S
+        for ms in bars_and_stars(k-1, n, c) :
+            s = multi(to + [sigma], ms)
 
-            rsp = {r:rs[r] for r in rs}
-            for i in range(len(to)-1) :
-                rsp[(sigma,to[i])] -= s[i]
+            # r_1', ..., r_m'
+            rsp = {t:rs[t] for t in ts}
+            for i in range(len(to)) :
+                rsp[(sigma,to[i])] -= ms[i]
 
             print(s)
             print(rsp)
-            
+            # p_1 \in P_V(r_1') ... p_m \in P_V(r_m')
+            for ps in product(*(bars_and_stars(n-1, rsp[t]) for t in ts)) :
 
+                for pi in multiset_permutations(s) :
+
+                    print(ps, pi)
+                
 
 # Main
 
@@ -85,9 +105,7 @@ tree = Tree(sys.argv[1], format = 8)
 alpha = get_alphabet(open(sys.argv[2],'r'))
 k = len(alpha)
 ts = get_transitions(alpha)
-rs = {t:0 for t in ts}
-rs[('a','b')] = 1
-rs[('a','c')] = 0
+rs = {t:2 for t in ts}
 
 print(tree)
 print()
