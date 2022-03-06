@@ -55,55 +55,39 @@ def otimes(S, T) :
 
 #
 # W_u(r_1, ..., r_m | sigma)
-def w(u, rs, sigma) :
+def W(u, rs, sigma) :
     result = []
-    
-    if u.is_leaf() :
-        if non_zero(rs) :
-            return result
+        
+    V = u.children
+    n = len(V)
 
-    else :
+    to = sorted(set(alpha) - set([sigma]))
+    c = [rs[(sigma,x)] for x in to]
 
-        V = u.children
-        n = len(V)
+    # s in S
+    for ms in bars_and_stars(k-1, n, c) :
+        s = multi(to + [sigma], ms)
 
-        to = sorted(set(alpha) - set([sigma]))
-        c = [rs[(sigma,x)] for x in to]
+        # r_1', ..., r_m'
+        rsp = {t:rs[t] for t in ts}
+        for j in range(len(to)) :
+            rsp[(sigma,to[j])] -= ms[j]
 
-        # s in S
-        for ms in bars_and_stars(k-1, n, c) :
-            s = multi(to + [sigma], ms)
+        # p_1 in P_V(r_1') ... p_m in P_V(r_m')
+        for ps in product(*(bars_and_stars(n-1, rsp[t]) for t in ts)) :
 
-            # r_1', ..., r_m'
-            rsp = {t:rs[t] for t in ts}
-            for j in range(len(to)) :
-                rsp[(sigma,to[j])] -= ms[j]
+            # pi in Pi(s)
+            for pi in multiset_permutations(s) :
 
-            print(s)
-            print(rsp)
-            # p_1 in P_V(r_1') ... p_m in P_V(r_m')
-            for ps in product(*(bars_and_stars(n-1, rsp[t]) for t in ts)) :
+                prod = [{}]
+                for i, v in enumerate(V) :
+                    prod[0][v.name] = (sigma, pi[i])
 
-                rps = n * [None]
                 for i in range(n) :
-                    rps[i] = {}
+                    prod = otimes(prod, w[v][pi[i]]) #[*p[i] for p in ps???])
+#https://stackoverflow.com/questions/2444923/unpacking-tuples-arrays-lists-as-indices-for-numpy-arrays
 
-                    for j, t in enumerate(ts) :
-                        rps[i][t] = ps[j][i]
-
-                # pi in Pi(s)
-                for pi in multiset_permutations(s) :
-
-                    prod = [{}]
-                    for i, v in enumerate(V) :
-                        prod[0][v.name] = (sigma, pi[i])
-                    
-                    print(ps, pi)
-                    for i in range(n) :
-                        print('w_v_{}('.format(i), rps[i], pi[i],')')
-
-                    
-
+                result.append(prod)
 
 #
 # obtain the alphabet: set of unique strings from a set of lines
@@ -140,7 +124,6 @@ print()
 print(rs)
 print()
 
-ways = w(tree, rs, 'a')
+#ways = W(tree, rs, 'a')
 
-print(otimes([{1:'a'}, {1:'b'}],[{2:'a'},{2:'b'}]))
-                                
+print(otimes([{}],[{2:'a'},{2:'b'}]))
