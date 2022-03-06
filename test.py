@@ -5,22 +5,14 @@ from itertools import product
 from sympy.utilities.iterables import multiset_permutations
 
 #
-# obtain the alphabet: set of unique string from a set of lines
-def get_alphabet(lines) :
+# if any element of counts dictionary rs is non-zero
+def non_zero(rs) :
 
-    alpha = set([])
+    for t in ts :
+        if rs[t] > 0 :
+            return False
 
-    for line in lines :
-        alpha.add(line.strip())
-
-    return sorted(alpha)
-
-#
-# obtain transitions from an alphabet: number of pairs (a,b) where b
-# is different from a
-def get_transitions(alpha) :
-
-    return sorted([(a,b) for a in alpha for b in alpha if b != a])
+    return True
 
 #
 # bars and stars with a restriction for each bar --- adapted from:
@@ -45,59 +37,91 @@ def bars_and_stars(bars, stars, restriction = [], prefix = []) :
         yield from bars_and_stars(bars-1, stars-i, restriction, prefix + [i])
 
 #
-# if any element of counts dictionary rs is non-zero
-def non_zero(rs) :
-
-    for t in ts :
-        if rs[t] > 0 :
-            return False
-
-    return True
-
-#
 # produce a multiset from a set a and its multiplicities
 def multi(a, ms) :
 
     s = []
-    for i in range(len(a)) :
-        s += ms[i] * [a[i]]
+    for x,y in zip(a, ms) :
+        s += [x] * y
 
     return s
 
 #
+# the \otimes operator of the manuscript (a kind of "cartesian
+# product")
+def otimes(S, T) :
+
+    return [{**s, **t} for s in S for t in T]
+
+#
 # W_u(r_1, ..., r_m | sigma)
 def w(u, rs, sigma) :
-
+    result = []
+    
     if u.is_leaf() :
         if non_zero(rs) :
-            return []
+            return result
 
     else :
 
-        v = u.children
-        n = len(v)
+        V = u.children
+        n = len(V)
 
         to = sorted(set(alpha) - set([sigma]))
         c = [rs[(sigma,x)] for x in to]
 
-        # s \in S
+        # s in S
         for ms in bars_and_stars(k-1, n, c) :
             s = multi(to + [sigma], ms)
 
             # r_1', ..., r_m'
             rsp = {t:rs[t] for t in ts}
-            for i in range(len(to)) :
-                rsp[(sigma,to[i])] -= ms[i]
+            for j in range(len(to)) :
+                rsp[(sigma,to[j])] -= ms[j]
 
             print(s)
             print(rsp)
-            # p_1 \in P_V(r_1') ... p_m \in P_V(r_m')
+            # p_1 in P_V(r_1') ... p_m in P_V(r_m')
             for ps in product(*(bars_and_stars(n-1, rsp[t]) for t in ts)) :
 
+                rps = n * [None]
+                for i in range(n) :
+                    rps[i] = {}
+
+                    for j, t in enumerate(ts) :
+                        rps[i][t] = ps[j][i]
+
+                # pi in Pi(s)
                 for pi in multiset_permutations(s) :
 
+                    prod = [{}]
+                    for i, v in enumerate(V) :
+                        prod[0][v.name] = (sigma, pi[i])
+                    
                     print(ps, pi)
-                
+                    for i in range(n) :
+                        print('w_v_{}('.format(i), rps[i], pi[i],')')
+
+                    
+
+
+#
+# obtain the alphabet: set of unique strings from a set of lines
+def get_alphabet(lines) :
+
+    alpha = set([])
+
+    for line in lines :
+        alpha.add(line.strip())
+
+    return sorted(alpha)
+
+#
+# obtain transitions from an alphabet: number of pairs (a,b) where b
+# is different from a
+def get_transitions(alpha) :
+
+    return sorted([(a,b) for a in alpha for b in alpha if b != a])
 
 # Main
 
@@ -117,3 +141,6 @@ print(rs)
 print()
 
 ways = w(tree, rs, 'a')
+
+print(otimes([{1:'a'}, {1:'b'}],[{2:'a'},{2:'b'}]))
+                                
