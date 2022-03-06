@@ -3,16 +3,7 @@ import sys
 from ete3 import Tree
 from itertools import product
 from sympy.utilities.iterables import multiset_permutations
-
-#
-# if any element of counts dictionary rs is non-zero
-def non_zero(rs) :
-
-    for t in ts :
-        if rs[t] > 0 :
-            return False
-
-    return True
+import numpy
 
 #
 # bars and stars with a restriction for each bar --- adapted from:
@@ -55,26 +46,27 @@ def otimes(S, T) :
 
 #
 # W_u(r_1, ..., r_m | sigma)
-def W(u, rs, sigma) :
+def W(u, sigma, rs) :
     result = []
-        
+
     V = u.children
     n = len(V)
 
     to = sorted(set(alpha) - set([sigma]))
-    c = [rs[(sigma,x)] for x in to]
+    rsd = {t : r for t,r in zip(ts,rs)}
+    c = [rsd[(sigma,x)] for x in to]
 
     # s in S
     for ms in bars_and_stars(k-1, n, c) :
         s = multi(to + [sigma], ms)
 
         # r_1', ..., r_m'
-        rsp = {t:rs[t] for t in ts}
+        rpsd = {t : rsd[t] for t in ts}
         for j in range(len(to)) :
-            rsp[(sigma,to[j])] -= ms[j]
+            rpsd[(sigma,to[j])] -= ms[j]
 
         # p_1 in P_V(r_1') ... p_m in P_V(r_m')
-        for ps in product(*(bars_and_stars(n-1, rsp[t]) for t in ts)) :
+        for ps in product(*(bars_and_stars(n-1, rpsd[t]) for t in ts)) :
 
             # pi in Pi(s)
             for pi in multiset_permutations(s) :
@@ -84,10 +76,11 @@ def W(u, rs, sigma) :
                     prod[0][v.name] = (sigma, pi[i])
 
                 for i in range(n) :
-                    prod = otimes(prod, w[v][pi[i]]) #[*p[i] for p in ps???])
-#https://stackoverflow.com/questions/2444923/unpacking-tuples-arrays-lists-as-indices-for-numpy-arrays
+                    prod = otimes(prod, w[v][pi[i]][tuple(p[i] for p in ps)])
 
                 result.append(prod)
+
+    return result
 
 #
 # obtain the alphabet: set of unique strings from a set of lines
@@ -108,22 +101,41 @@ def get_transitions(alpha) :
     return sorted([(a,b) for a in alpha for b in alpha if b != a])
 
 # Main
+#----------------------------------------------------------------------
 
 tree = Tree(sys.argv[1], format = 8)
 alpha = get_alphabet(open(sys.argv[2],'r'))
 k = len(alpha)
 ts = get_transitions(alpha)
-rs = {t:2 for t in ts}
+s = 2 # parsimony score
 
-print(tree)
 print()
-print(alpha)
+print('tree:', tree)
 print()
-print(ts)
+print('alphabet:', alpha)
 print()
-print(rs)
+print('transitions:', ts)
 print()
 
-#ways = W(tree, rs, 'a')
+w = {} # dp table
+for node in tree.traverse('postorder') :
 
-print(otimes([{}],[{2:'a'},{2:'b'}]))
+    w[node.name] = {a : numpy.ndarray(shape=tuple(s for t in ts), dtype=object) for a in alpha}
+
+    # base case
+    if node.is_leaf() :
+
+        for a in alpha :
+            for rs in product(range(s), repeat = len(ts)) :
+                w[node.name][a][rs] = []
+
+            w[node.name][a][tuple(0 for t in ts)] = [{}]
+
+        continue
+
+    # recursive case
+    for a in alpha :            
+        for rs in product(range(s), repeat = len(ts)) :
+            w[node.name][a][rs] = W(node, a, rs)
+
+print(w)
