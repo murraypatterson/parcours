@@ -49,6 +49,10 @@ def otimes(S, T) :
 def W(u, sigma, rs) :
     result = []
 
+    print()
+    print()
+    print('w[{}][{}][{}] = U'.format(u.name, sigma, rs))
+
     V = u.children
     n = len(V)
 
@@ -73,13 +77,25 @@ def W(u, sigma, rs) :
 
                 prod = [{}]
                 for i, v in enumerate(V) :
+
+                    if pi[i] == sigma :
+                        continue
+
                     prod[0][v.name] = (sigma, pi[i])
 
+                print()
+                print(' ', prod)
                 for i in range(n) :
-                    prod = otimes(prod, w[v][pi[i]][tuple(p[i] for p in ps)])
+                    print('  x w[{}][{}][{}] = {}'.format(v.name, pi[i], tuple(p[i] for p in ps), w[v.name][pi[i]][tuple(p[i] for p in ps)]))
+                    prod = otimes(prod, w[v.name][pi[i]][tuple(p[i] for p in ps)])
+                print('    =', prod)
 
-                result.append(prod)
 
+                    
+                result += prod
+
+    print()
+    print('=', result)
     return result
 
 #
@@ -107,7 +123,7 @@ tree = Tree(sys.argv[1], format = 8)
 alpha = get_alphabet(open(sys.argv[2],'r'))
 k = len(alpha)
 ts = get_transitions(alpha)
-s = 2 # parsimony score
+s = 3 # parsimony score (+1)
 
 print()
 print('tree:', tree)
@@ -138,4 +154,12 @@ for node in tree.traverse('postorder') :
         for rs in product(range(s), repeat = len(ts)) :
             w[node.name][a][rs] = W(node, a, rs)
 
-print(w)
+# verify
+for node in tree.traverse('postorder') :
+    print()
+
+    for a in alpha :
+        print()
+
+        for rs in product(range(s), repeat = len(ts)) :
+            print('w[{}][{}][{}] = {}'.format(node.name, a, rs, w[node.name][a][rs]))
