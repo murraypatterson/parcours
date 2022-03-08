@@ -94,6 +94,7 @@ def W(u, sigma, rs, debug = False) :
             # pi in Pi(s)
             for pi in multiset_permutations(s) :
 
+                # pi'
                 prod = [{}]
                 for i, v in enumerate(V) :
 
@@ -106,11 +107,20 @@ def W(u, sigma, rs, debug = False) :
                     print()
                     print(' ', p_w(prod))
 
+                # bigotimes_{v in V} W_v(p_1^v, ..., p_m^v | pi^v)
                 for i, v in enumerate(V) :
-                    prod = otimes(prod, w[v.name][pi[i]][tuple(p[i] for p in ps)])
-
+                    w_v = w[v.name][pi[i]][tuple(p[i] for p in ps)]
+                    prod = otimes(prod, w_v)
+                    
                     if debug :
                         print('    x', p_dp(v.name, pi[i], tuple(p[i] for p in ps)))
+
+                    if not w_v :
+
+                        if debug :
+                            print('    ..prune')
+
+                        break
 
                 if debug :
                     print('  =', p_w(prod))
