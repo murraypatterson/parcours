@@ -45,15 +45,34 @@ def otimes(S, T) :
     return [{**s, **t} for s in S for t in T]
 
 #
+# pretty print the entries of a dictionary
+def p_d(d) :
+
+    return '{' + ', '.join('{}:{}->{}'.format(x,d[x][0],d[x][1]) for x in d) + '}'
+
+#
+# pretty print a list of dictionaries (an entry w of dp table)
+def p_w(w) :
+
+    return '[' + ', '.join(p_d(d) for d in w) + ']'
+
+#
+# print an entry of the dp table (for debugging purposes)
+def p_dp(u, sigma, rs) :
+
+    return 'w[{}][{}][{}] = {}'.format(u, sigma, rs, p_w(w[u][sigma][rs]))
+
+#
 # W_u(r_1, ..., r_m | sigma)
-def W(u, sigma, rs) :
+def W(u, sigma, rs, debug = False) :
     result = []
 
-    print()
-    print()
-    print('w[{}][{}][{}] = U'.format(u.name, sigma, rs))
+    if debug :
+        print()
+        print()
+        print('w[{}][{}][{}] = U'.format(u.name, sigma, rs))
 
-    V = u.children
+    V = u.get_children()
     n = len(V)
 
     to = sorted(set(alpha) - set([sigma]))
@@ -83,19 +102,25 @@ def W(u, sigma, rs) :
 
                     prod[0][v.name] = (sigma, pi[i])
 
-                print()
-                print(' ', prod)
-                for i in range(n) :
-                    print('  x w[{}][{}][{}] = {}'.format(v.name, pi[i], tuple(p[i] for p in ps), w[v.name][pi[i]][tuple(p[i] for p in ps)]))
+                if debug :
+                    print()
+                    print(' ', p_w(prod))
+
+                for i, v in enumerate(V) :
                     prod = otimes(prod, w[v.name][pi[i]][tuple(p[i] for p in ps)])
-                print('    =', prod)
 
+                    if debug :
+                        print('    x', p_dp(v.name, pi[i], tuple(p[i] for p in ps)))
 
-                    
+                if debug :
+                    print('  =', p_w(prod))
+
                 result += prod
 
-    print()
-    print('=', result)
+    if debug :
+        print()
+        print('=', p_w(result))
+
     return result
 
 #
@@ -152,7 +177,7 @@ for node in tree.traverse('postorder') :
     # recursive case
     for a in alpha :            
         for rs in product(range(s), repeat = len(ts)) :
-            w[node.name][a][rs] = W(node, a, rs)
+            w[node.name][a][rs] = W(node, a, rs, debug = True)
 
 # verify
 for node in tree.traverse('postorder') :
@@ -162,4 +187,4 @@ for node in tree.traverse('postorder') :
         print()
 
         for rs in product(range(s), repeat = len(ts)) :
-            print('w[{}][{}][{}] = {}'.format(node.name, a, rs, w[node.name][a][rs]))
+            print(p_dp(node.name, a, rs))
