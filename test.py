@@ -4,6 +4,7 @@ from ete3 import Tree
 from itertools import product
 from sympy.utilities.iterables import multiset_permutations
 import numpy
+import parse
 
 #
 # bars and stars with a restriction for each bar --- adapted from:
@@ -134,13 +135,13 @@ def W(u, sigma, rs, debug = False) :
     return result
 
 #
-# obtain the alphabet: set of unique strings from a set of lines
-def get_alphabet(lines) :
+# obtain the alphabet: set of unique substrings from a string
+def get_alphabet(string) :
 
     alpha = set([])
 
-    for line in lines :
-        alpha.add(line.strip())
+    for s in string.split() :
+        alpha.add(s)
 
     return sorted(alpha)
 
@@ -151,14 +152,28 @@ def get_transitions(alpha) :
 
     return sorted([(a,b) for a in alpha for b in alpha if b != a])
 
+#
+# obtain (number of) transition events from a string and create a
+# dictionary in the context of a known set of transitions
+def process_events(string, ts) :
+
+    e = {t:0 for t in ts}
+    for s in string.split() :
+
+        k,a,b = parse.parse('{}:{}->{}', s)
+        e[(a,b)] = int(k)
+
+    return e
+
+#
 # Main
 #----------------------------------------------------------------------
 
 tree = Tree(sys.argv[1], format = 8)
-alpha = get_alphabet(open(sys.argv[2],'r'))
+alpha = get_alphabet(sys.argv[2])
 k = len(alpha)
 ts = get_transitions(alpha)
-s = 3 # parsimony score (+1)
+e = process_events(sys.argv[3], ts)
 
 print()
 print('tree:', tree)
@@ -167,17 +182,18 @@ print('alphabet:', alpha)
 print()
 print('transitions:', ts)
 print()
+print('events:', e)
 
 w = {} # dp table
 for node in tree.traverse('postorder') :
 
-    w[node.name] = {a : numpy.ndarray(shape=tuple(s for t in ts), dtype=object) for a in alpha}
+    w[node.name] = {a : numpy.ndarray(shape=tuple(e[t]+1 for t in ts), dtype=object) for a in alpha}
 
     # base case
     if node.is_leaf() :
 
         for a in alpha :
-            for rs in product(range(s), repeat = len(ts)) :
+            for rs in product(*(range(e[t]+1) for t in ts)) :
                 w[node.name][a][rs] = []
 
             w[node.name][a][tuple(0 for t in ts)] = [{}]
@@ -186,7 +202,7 @@ for node in tree.traverse('postorder') :
 
     # recursive case
     for a in alpha :            
-        for rs in product(range(s), repeat = len(ts)) :
+        for rs in product(*(range(e[t]+1) for t in ts)) :
             w[node.name][a][rs] = W(node, a, rs, debug = True)
 
 # verify
@@ -196,5 +212,5 @@ for node in tree.traverse('postorder') :
     for a in alpha :
         print()
 
-        for rs in product(range(s), repeat = len(ts)) :
+        for rs in product(*(range(e[t]+1) for t in ts)) :
             print(p_dp(node.name, a, rs))
