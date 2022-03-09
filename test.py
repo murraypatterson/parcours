@@ -59,9 +59,14 @@ def p_w(w) :
 
 #
 # print an entry of the dp table (for debugging purposes)
-def p_dp(u, sigma, rs) :
+def p_dp(u, sigma, rs, numerical = False) :
 
-    return 'w[{}][{}][{}] = {}'.format(u, sigma, rs, p_w(w[u][sigma][rs]))
+    d = w[u][sigma][rs]
+    p = p_w(d)
+    if numerical :
+        p = len(d)
+
+    return 'w[{}][{}][{}] = {}'.format(u, sigma, rs, p)
 
 #
 # W_u(r_1, ..., r_m | sigma)
@@ -203,7 +208,7 @@ for node in tree.traverse('postorder') :
     # recursive case
     for a in alpha :            
         for rs in product(*(range(e[t]+1) for t in ts)) :
-            w[node.name][a][rs] = W(node, a, rs, debug = True)
+            w[node.name][a][rs] = W(node, a, rs, debug = False)
 
 # verify
 for node in tree.traverse('postorder') :
@@ -213,4 +218,4 @@ for node in tree.traverse('postorder') :
         print()
 
         for rs in product(*(range(e[t]+1) for t in ts)) :
-            print(p_dp(node.name, a, rs))
+            print(p_dp(node.name, a, rs, numerical = True))
