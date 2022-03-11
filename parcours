@@ -799,6 +799,10 @@ parser.add_argument(
     help = 'direct unit transition occurrence information to a given (csv) file')
 
 parser.add_argument(
+    '-b', '--solns', metavar = 'solns.csv',
+    help = 'direct parsimonies (in terms of transitions) to a give (csv) file')
+
+parser.add_argument(
     '-p', '--pairwise', metavar = 'pairwise.csv',
     help = 'direct pairwise transition co-occurrence information to a given (csv) file')
 
@@ -1290,6 +1294,22 @@ if args.unit :
                 bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(a,b)])
                 print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
 
+    if args.solns :
+
+        solns_h = open(args.solns,'w')
+        print('Char,Soln,Size,Transitions', file = solns_h)
+
+        for i in range(m) :
+            for si in range(nsolns[char[i]]) :
+
+                u = unit[i][si]
+                ts = []
+                for a,b in u :
+                    ts += ['{}:{}->{}'.format(y,a,b) for x,y in u[(a,b)]]
+
+                s = len(ts)
+                ts = '{' + '; '.join(ts) + '}'
+                print(char[i], si+1, s, ts, sep = ',', file = solns_h)
 
 #
 # from unit transitions occurrences (unit), compute pairwise
