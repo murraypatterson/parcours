@@ -807,6 +807,10 @@ parser.add_argument(
     help = 'direct pairwise transition co-occurrence information to a given (csv) file')
 
 parser.add_argument(
+    '-g', '--significant', metavar = 'significant.csv',
+    help = 'include significant co-occurrence in pairwise above')
+
+parser.add_argument(
     '-s', '--save', metavar = 'out_conf.csv',
     help = 'save the configuration used to a configuration file')
 
@@ -1374,8 +1378,18 @@ def pairwise_to_file(filename, m, char, nsolns, unit, branches = False) :
 
                     print(*coll, sep = ',', file = pairs_h)
 
-
 if args.pairwise :
 
     pairwise_to_file(args.pairwise, m, char, nsolns, unit, True)
 
+if args.significant :
+
+    sig_h = open(args.significant,'w')
+    
+    for i in range(m) :
+        for si in range(nsolns[char[i]]) :
+
+            u = unit[i][si]
+            e = {(a,b):len(u[(a,b)]) for a,b in u}
+
+            print(char[i], si+1, e, sep = '\t', file = sig_h)
