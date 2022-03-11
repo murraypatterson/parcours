@@ -208,7 +208,7 @@ for node in tree.traverse('postorder') :
     # recursive case
     for a in alpha :            
         for rs in product(*(range(e[t]+1) for t in ts)) :
-            w[node.name][a][rs] = W(node, a, rs, debug = False)
+            w[node.name][a][rs] = W(node, a, rs, debug = True)
 
 # verify
 for node in tree.traverse('postorder') :
@@ -218,4 +218,4 @@ for node in tree.traverse('postorder') :
         print()
 
         for rs in product(*(range(e[t]+1) for t in ts)) :
-            print(p_dp(node.name, a, rs, numerical = True))
+            print(p_dp(node.name, a, rs, numerical = False))

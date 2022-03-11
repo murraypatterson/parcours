@@ -1291,11 +1291,11 @@ if args.unit :
 
     for i in range(m) :
         for si in range(nsolns[char[i]]) :
-            for a,b in sorted(unit[i][si]) :
+            for ai,bi in sorted(unit[i][si]) :
 
                 t = '{} -> {}'.format(a,b)
-                c = len(unit[i][si][(a,b)])
-                bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(a,b)])
+                c = len(unit[i][si][(ai,bi)])
+                bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(ai,bi)])
                 print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
 
     if args.solns :
@@ -1308,8 +1308,8 @@ if args.unit :
 
                 u = unit[i][si]
                 ts = []
-                for a,b in u :
-                    ts += ['{}:{}->{}'.format(y,a,b) for x,y in u[(a,b)]]
+                for ai,bi in u :
+                    ts += ['{}:{}->{}'.format(y,ai,bi) for x,y in u[(ai,bi)]]
 
                 s = len(ts)
                 ts = '{' + '; '.join(ts) + '}'
@@ -1327,13 +1327,13 @@ def pairwise_to_file(filename, m, char, nsolns, unit, branches = False) :
         c = defaultdict(list)
         for si in range(nsolns[char[i]]) :
 
-            for a,b in unit[i][si] :
-                c[(a,b)] += unit[i][si][(a,b)]
+            for ai,bi in unit[i][si] :
+                c[(ai,bi)] += unit[i][si][(ai,bi)]
 
         # store as multiset for (effectively) weighted Jaccard index
         c_map[i] = {}
-        for a,b in c :
-            c_map[i][(a,b)] = Multiset(c[(a,b)])
+        for ai,bi in c :
+            c_map[i][(ai,bi)] = Multiset(c[(ai,bi)])
 
     # dump pairwise transition co-occurrence to file
     pairs_h = open(filename,'w')
@@ -1368,13 +1368,13 @@ def pairwise_to_file(filename, m, char, nsolns, unit, branches = False) :
                     tj = '{} -> {}'.format(aj,bj)
 
                     aib = '; '.join('{} -> {}'.format(x,y) for x,y in inter)
-                    a = '; '.join('{} -> {}'.format(x,y) for x,y in A)
-                    b = '; '.join('{} -> {}'.format(x,y) for x,y in B)
+                    aa = '; '.join('{} -> {}'.format(x,y) for x,y in A)
+                    bb = '; '.join('{} -> {}'.format(x,y) for x,y in B)
                     aub = '; '.join('{} -> {}'.format(x,y) for x,y in union)
 
                     coll = char[i], char[j], ti, tj, len(inter), correlation, jaccard
                     if branches :
-                        coll += aib, a, b, aub
+                        coll += aib, aa, bb, aub
 
                     print(*coll, sep = ',', file = pairs_h)
 
@@ -1386,10 +1386,13 @@ if args.significant :
 
     sig_h = open(args.significant,'w')
     
+    events = {}
     for i in range(m) :
+
+        events[i] = {}
         for si in range(nsolns[char[i]]) :
 
             u = unit[i][si]
-            e = {(a,b):len(u[(a,b)]) for a,b in u}
+            events[i][si] = {(ai,bi):len(u[(ai,bi)]) for ai,bi in u}
 
-            print(char[i], si+1, e, sep = '\t', file = sig_h)
+            print(char[i], a[i], si+1, events[i][si], sep = '\t', file = sig_h)
