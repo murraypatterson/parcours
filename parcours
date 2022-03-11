@@ -1248,151 +1248,151 @@ print() # one last empty line
 #----------------------------------------------------------------------
 
 unit = {} # unit transition occurrence
-if args.unit :
+if not args.unit :
+    sys.exit(0)
 
-    # set up dictionaries
-    for i in range(m) :
-        unit[i] = {}
+# set up dictionaries
+for i in range(m) :
+    unit[i] = {}
 
-        # unit
-        for si in range(nsolns[char[i]]) :
-            unit[i][si] = defaultdict(list)
+    # unit
+    for si in range(nsolns[char[i]]) :
+        unit[i][si] = defaultdict(list)
 
-    # go over the branches of the tree
-    for node in tree.traverse('postorder') :
+# go over the branches of the tree
+for node in tree.traverse('postorder') :
 
-        if score[node.name] is None :
-            continue
+    if score[node.name] is None :
+        continue
 
-        if node.is_root() :
-            continue
+    if node.is_root() :
+        continue
 
-        u = node.name
-        v = node.up.name
-
-        for i in range(m) :
-            sci = solutions[char[i]]
-
-            for si in range(nsolns[char[i]]) :
-                ai = sci[v][si]
-                bi = sci[u][si]
-
-                # note only the changes (in either case)
-                if ai == bi :
-                    continue
-
-                ti = ai, bi
-                unit[i][si][ti].append((v,u))
-
-    # dump unit transition occurrence to file
-    unit_h = open(args.unit,'w')
-    header = ['Char', 'Soln', 'Transition', 'Count', 'Branches']
-    print(*header, sep = ',', file = unit_h)
+    u = node.name
+    v = node.up.name
 
     for i in range(m) :
+        sci = solutions[char[i]]
+
         for si in range(nsolns[char[i]]) :
-            for ai,bi in sorted(unit[i][si]) :
+            ai = sci[v][si]
+            bi = sci[u][si]
 
-                t = '{} -> {}'.format(a,b)
-                c = len(unit[i][si][(ai,bi)])
-                bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(ai,bi)])
-                print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
+            # note only the changes (in either case)
+            if ai == bi :
+                continue
 
-    if args.solns :
+            ti = ai, bi
+            unit[i][si][ti].append((v,u))
 
-        solns_h = open(args.solns,'w')
-        print('Char,Soln,Size,Transitions', file = solns_h)
+# dump unit transition occurrence to file
+unit_h = open(args.unit,'w')
+header = ['Char', 'Soln', 'Transition', 'Count', 'Branches']
+print(*header, sep = ',', file = unit_h)
 
-        for i in range(m) :
-            for si in range(nsolns[char[i]]) :
+for i in range(m) :
+    for si in range(nsolns[char[i]]) :
+        for ai,bi in sorted(unit[i][si]) :
 
-                u = unit[i][si]
-                ts = []
-                for ai,bi in u :
-                    ts += ['{}:{}->{}'.format(y,ai,bi) for x,y in u[(ai,bi)]]
+            t = '{} -> {}'.format(ai,bi)
+            c = len(unit[i][si][(ai,bi)])
+            bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(ai,bi)])
+            print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
 
-                s = len(ts)
-                ts = '{' + '; '.join(ts) + '}'
-                print(char[i], si+1, s, ts, sep = ',', file = solns_h)
+if args.solns :
+
+    solns_h = open(args.solns,'w')
+    print('Char,Soln,Size,Transitions', file = solns_h)
+
+    for i in range(m) :
+        for si in range(nsolns[char[i]]) :
+
+            u = unit[i][si]
+            ts = []
+            for ai,bi in u :
+                ts += ['{}:{}->{}'.format(y,ai,bi) for x,y in u[(ai,bi)]]
+
+            s = len(ts)
+            ts = '{' + '; '.join(ts) + '}'
+            print(char[i], si+1, s, ts, sep = ',', file = solns_h)
 
 #
 # from unit transitions occurrences (unit), compute pairwise
 # transition co-occurences and output to (filename)
-def pairwise_to_file(filename, m, char, nsolns, unit, branches = False) :
+branches = True
+if not args.pairwise :
+    sys.exit(0)
 
-    # collapse unit transition occurrences into single "consensus map"
-    c_map = {}
-    for i in range(m) :
+# collapse unit transition occurrences into single "consensus map"
+c_map = {}
+for i in range(m) :
 
-        c = defaultdict(list)
-        for si in range(nsolns[char[i]]) :
+    c = defaultdict(list)
+    for si in range(nsolns[char[i]]) :
 
-            for ai,bi in unit[i][si] :
-                c[(ai,bi)] += unit[i][si][(ai,bi)]
+        for ai,bi in unit[i][si] :
+            c[(ai,bi)] += unit[i][si][(ai,bi)]
 
-        # store as multiset for (effectively) weighted Jaccard index
-        c_map[i] = {}
-        for ai,bi in c :
-            c_map[i][(ai,bi)] = Multiset(c[(ai,bi)])
+    # store as multiset for (effectively) weighted Jaccard index
+    c_map[i] = {}
+    for ai,bi in c :
+        c_map[i][(ai,bi)] = Multiset(c[(ai,bi)])
 
-    # dump pairwise transition co-occurrence to file
-    pairs_h = open(filename,'w')
-    header = ['Char_1', 'Char_2', 'Transition_1', 'Transition_2']
-    header += ['Count', 'Correlation', 'Jaccard']
-    header += ['C_Map_1 & C_Map_2', 'C_Map_1', 'C_Map_2', 'C_Map_1 | C_Map_2']
-    print(*header, sep = ',', file = pairs_h)
+# dump pairwise transition co-occurrence to file
+pairs_h = open(args.pairwise,'w')
+header = ['Char_1', 'Char_2', 'Transition_1', 'Transition_2']
+header += ['Count', 'Correlation', 'Jaccard']
+header += ['C_Map_1 & C_Map_2', 'C_Map_1', 'C_Map_2', 'C_Map_1 | C_Map_2']
+print(*header, sep = ',', file = pairs_h)
 
-    for i in range(m) :
-        cmi = c_map[i]
+for i in range(m) :
+    cmi = c_map[i]
 
-        for j in range(i) :
-            cmj = c_map[j]
+    for j in range(i) :
+        cmj = c_map[j]
 
-            for ai, bi in sorted(cmi) :
-                A = cmi[(ai,bi)]
+        for ai, bi in sorted(cmi) :
+            A = cmi[(ai,bi)]
 
-                for aj, bj in sorted(cmj) :
-                    B = cmj[(aj,bj)]
+            for aj, bj in sorted(cmj) :
+                B = cmj[(aj,bj)]
 
-                    inter = A & B
+                inter = A & B
 
-                    # note only the non-zero correlations
-                    if not inter :
-                        continue
+                # note only the non-zero correlations
+                if not inter :
+                    continue
 
-                    union = A | B
-                    correlation = len(inter) / float(len(union)) # correlation is weighted Jaccard index
-                    jaccard = len(set(inter)) / float(len(set(union)))
+                union = A | B
+                correlation = len(inter) / float(len(union)) # correlation is weighted Jaccard index
+                jaccard = len(set(inter)) / float(len(set(union)))
 
-                    ti = '{} -> {}'.format(ai,bi)
-                    tj = '{} -> {}'.format(aj,bj)
+                ti = '{} -> {}'.format(ai,bi)
+                tj = '{} -> {}'.format(aj,bj)
 
-                    aib = '; '.join('{} -> {}'.format(x,y) for x,y in inter)
-                    aa = '; '.join('{} -> {}'.format(x,y) for x,y in A)
-                    bb = '; '.join('{} -> {}'.format(x,y) for x,y in B)
-                    aub = '; '.join('{} -> {}'.format(x,y) for x,y in union)
+                aib = '; '.join('{} -> {}'.format(x,y) for x,y in inter)
+                aa = '; '.join('{} -> {}'.format(x,y) for x,y in A)
+                bb = '; '.join('{} -> {}'.format(x,y) for x,y in B)
+                aub = '; '.join('{} -> {}'.format(x,y) for x,y in union)
 
-                    coll = char[i], char[j], ti, tj, len(inter), correlation, jaccard
-                    if branches :
-                        coll += aib, aa, bb, aub
+                coll = char[i], char[j], ti, tj, len(inter), correlation, jaccard
+                if branches :
+                    coll += aib, aa, bb, aub
 
-                    print(*coll, sep = ',', file = pairs_h)
+                print(*coll, sep = ',', file = pairs_h)
 
-if args.pairwise :
+if not args.significant :
+    sys.exit(0)
 
-    pairwise_to_file(args.pairwise, m, char, nsolns, unit, True)
+sig_h = open(args.significant,'w')
 
-if args.significant :
+events = {}
+for i in range(m) :
 
-    sig_h = open(args.significant,'w')
-    
-    events = {}
-    for i in range(m) :
+    events[i] = {}
+    for si in range(nsolns[char[i]]) :
 
-        events[i] = {}
-        for si in range(nsolns[char[i]]) :
+        u = unit[i][si]
+        events[i][si] = {(ai,bi):len(u[(ai,bi)]) for ai,bi in u}
 
-            u = unit[i][si]
-            events[i][si] = {(ai,bi):len(u[(ai,bi)]) for ai,bi in u}
-
-            print(char[i], a[i], si+1, events[i][si], sep = '\t', file = sig_h)
+        print(char[i], a[i], si+1, events[i][si], sep = '\t', file = sig_h)
