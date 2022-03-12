@@ -1348,6 +1348,7 @@ header += ['Count', 'Correlation', 'Jaccard']
 header += ['C_Map_1 & C_Map_2', 'C_Map_1', 'C_Map_2', 'C_Map_1 | C_Map_2']
 print(*header, sep = ',', file = pairs_h)
 
+pairwise = []
 for i in range(m) :
     cmi = c_map[i]
 
@@ -1369,6 +1370,8 @@ for i in range(m) :
                 union = A | B
                 correlation = len(inter) / float(len(union)) # correlation is weighted Jaccard index
                 jaccard = len(set(inter)) / float(len(set(union)))
+
+                pairwise.append((i,j,(ai,bi),(aj,bj),correlation))
 
                 ti = '{} -> {}'.format(ai,bi)
                 tj = '{} -> {}'.format(aj,bj)
@@ -1455,7 +1458,7 @@ def p_dp(u, sigma, rs, numerical = False) :
 
 #
 # W_u(r_1, ..., r_m | sigma)
-def W(u, sigma, rs, debug = False) :
+def W(u, sigma, rs, alpha, debug = False) :
     result = []
 
     if debug :
@@ -1463,8 +1466,16 @@ def W(u, sigma, rs, debug = False) :
         print()
         print('w[{}][{}][{}] = U'.format(u.name, sigma, rs))
 
-    V = u.get_children()
+    V = []
+    for child in u.get_children() :
+
+        if score[child.name] is None : # prune
+            continue
+
+        V.append(child)
+
     n = len(V)
+    k = len(alpha)
 
     to = sorted(set(alpha) - set([sigma]))
     rsd = {t : r for t,r in zip(ts,rs)}
@@ -1502,7 +1513,7 @@ def W(u, sigma, rs, debug = False) :
                 for i, v in enumerate(V) :
                     w_v = w[v.name][pi[i]][tuple(p[i] for p in ps)]
                     prod = otimes(prod, w_v)
-                    
+
                     if debug :
                         print('    x', p_dp(v.name, pi[i], tuple(p[i] for p in ps)))
 
@@ -1532,36 +1543,39 @@ def get_transitions(alpha) :
     return sorted([(a,b) for a in alpha for b in alpha if b != a])
 
 #
-# obtain (number of) transition events from a string and create a
-# dictionary in the context of a known set of transitions
-def process_events(string, ts) :
+# obtain (number of) transition events from a set of unit transitions
+# and create a dictionary in the context of a known set of transitions
+def process_events(u, ts) :
 
     e = {t:0 for t in ts}
-    for s in string.split() :
-
-        k,a,b = parse.parse('{}:{}->{}', s)
-        e[(a,b)] = int(k)
+    for ai,bi in u :
+        e[(ai,bi)] = len(u[(ai,bi)])
 
     return e
 
-sig_h = open(args.significant,'w')
+in_corr = set()
+for ai, bi, *_ in pairwise :
+    in_corr.add(ai)
+    in_corr.add(bi)
 
 ways = {}
 for i in range(m) :
-    ts = get_transitions(a[i])
 
+    if not i in in_corr :
+        continue
+
+    ts = get_transitions(a[i])
     ways[i] = {}
     for si in range(nsolns[char[i]]) :
 
         u = unit[i][si]
-        e = {(ai,bi) : len(u[(ai,bi)]) for ai,bi in u}
-        print(char[i], a[i], si+1, e, sep = '\t', file = sig_h)
+        e = process_events(u, ts)
 
         w = {} # dp table
         for node in tree.traverse('postorder') :
 
-#            if score[node.name] is None :
-#                continue
+            if score[node.name] is None :
+                continue
 
             w[node.name] = {ai : numpy.ndarray(shape=tuple(e[t]+1 for t in ts), dtype=object) for ai in a[i]}
 
@@ -1579,4 +1593,12 @@ for i in range(m) :
             # recursive case
             for ai in a[i] :
                 for rs in product(*(range(e[t]+1) for t in ts)) :
-                    w[node.name][ai][rs] = W(node, ai, rs)
+                    w[node.name][ai][rs] = W(node, ai, rs, a[i])
+
+        rs = tuple(e[t] for t in ts)
+        u = tree.get_tree_root().name
+        ways[i][si] = []
+        for ai in a[i] :
+            ways[i][si] += w[u][ai][rs]
+
+        print(char[i], si+1, len(ways[i][si]))
