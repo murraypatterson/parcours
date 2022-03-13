@@ -1348,7 +1348,7 @@ header += ['Count', 'Correlation', 'Jaccard']
 header += ['C_Map_1 & C_Map_2', 'C_Map_1', 'C_Map_2', 'C_Map_1 | C_Map_2']
 print(*header, sep = ',', file = pairs_h)
 
-pairwise = []
+pairwise = {}
 for i in range(m) :
     cmi = c_map[i]
 
@@ -1371,7 +1371,7 @@ for i in range(m) :
                 correlation = len(inter) / float(len(union)) # correlation is weighted Jaccard index
                 jaccard = len(set(inter)) / float(len(set(union)))
 
-                pairwise.append((i,j,(ai,bi),(aj,bj),correlation))
+                pairwise[(i,j,(ai,bi),(aj,bj))] = correlation
 
                 ti = '{} -> {}'.format(ai,bi)
                 tj = '{} -> {}'.format(aj,bj)
@@ -1601,4 +1601,64 @@ for i in range(m) :
         for ai in a[i] :
             ways[i][si] += w[u][ai][rs]
 
-        print(char[i], si+1, len(ways[i][si]))
+        w = ways[i][si]
+
+c_maps = {}
+for i in ways :
+    w = ways[i]
+
+    c_maps[i] = defaultdict(list)
+    for c in product(*(w[si] for si in range(nsolns[char[i]]))) :
+        rd = defaultdict(list)
+
+        for d in c :
+            for k in d :
+                rd[d[k]].append(k)
+
+        for p in rd :
+            c_maps[i][p].append(Multiset(rd[p]))
+
+dist = {}
+for i in range(m) :
+    cmi = c_maps[i]
+
+    for j in range(i) :
+        cmj = c_maps[j]
+
+        for ai, bi in sorted(cmi) :
+            As = cmi[(ai,bi)]
+
+            for aj, bj in sorted(cmj) :
+                Bs = cmj[(aj,bj)]
+
+                if (i,j,(ai,bi),(aj,bj)) not in pairwise :
+                    continue
+
+                dc = defaultdict(int)
+                dj = defaultdict(int)
+                for A in As :
+                    for B in Bs :
+
+                        inter = A & B
+                        union = A | B
+                        correlation = len(inter) / float(len(union))
+                        jaccard = len(set(inter)) / float(len(set(union)))
+
+                        dc[correlation] += 1
+                        dj[jaccard] += 1
+
+                dist[(i,j,(ai,bi),(aj,bj))] = (dc,dj)
+
+sig_h = open(args.significant,'w')
+print('Char_1,Char_2,Transition_1,Transition_2,Correlation_dist,Jaccard_dist', file = sig_h)
+
+for i,j,(ai,bi),(aj,bj) in dist :
+
+    ti = '{}->{}'.format(ai,bi)
+    tj = '{}->{}'.format(aj,bj)
+
+    dc, dj = dist[(i,j,(ai,bi),(aj,bj))]
+    dc = '; '.join(['{}:{}'.format(dc[x],x) for x in dc])
+    dj = ': '.join(['{}:{}'.format(dj[x],x) for x in dj])
+
+    print(char[i], char[j], ti, tj, dc, dj, sep = ',', file = sig_h)
