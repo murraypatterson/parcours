@@ -810,8 +810,16 @@ parser.add_argument(
     help = 'direct pairwise transition co-occurrence information to a given (csv) file')
 
 parser.add_argument(
+    '-w', '--ways', metavar = 'ways.csv',
+    help = 'direct information on number of ways events can happen on a tree to given (csv) file')
+
+parser.add_argument(
+    '-m', '--cmaps', metavar = 'cmaps.csv',
+    help = 'direct information on the consensus maps generated from the ways to given (csv) file')
+
+parser.add_argument(
     '-g', '--significant', metavar = 'significant.csv',
-    help = 'include significant co-occurrence in pairwise above')
+    help = 'include significant co-occurrence from pairwise above to a given (csv) file')
 
 parser.add_argument(
     '-s', '--save', metavar = 'out_conf.csv',
@@ -1290,17 +1298,19 @@ for node in tree.traverse('postorder') :
 
 # dump unit transition occurrence to file
 unit_h = open(args.unit,'w')
-header = ['Char', 'Soln', 'Transition', 'Count', 'Branches']
-print(*header, sep = ',', file = unit_h)
+header = 'Char,Soln,Transition,Count,Branches'
+print(header, file = unit_h)
 
 for i in range(m) :
     for si in range(nsolns[char[i]]) :
         for ai,bi in sorted(unit[i][si]) :
 
-            t = '{} -> {}'.format(ai,bi)
+            t = '{}->{}'.format(ai,bi)
             c = len(unit[i][si][(ai,bi)])
-            bs = '; '.join('{} -> {}'.format(x,y) for x,y in unit[i][si][(ai,bi)])
+            bs = '; '.join('{}->{}'.format(x,y) for x,y in unit[i][si][(ai,bi)])
             print(char[i], si+1, t, c, bs, sep = ',', file = unit_h)
+
+unit_h.close()
 
 if args.solns :
 
@@ -1318,6 +1328,8 @@ if args.solns :
             s = len(ts)
             ts = '{' + '; '.join(ts) + '}'
             print(char[i], si+1, s, ts, sep = ',', file = solns_h)
+
+    solns_h.close()
 
 #
 # from unit transitions occurrences (unit), compute pairwise
@@ -1343,10 +1355,9 @@ for i in range(m) :
 
 # dump pairwise transition co-occurrence to file
 pairs_h = open(args.pairwise,'w')
-header = ['Char_1', 'Char_2', 'Transition_1', 'Transition_2']
-header += ['Count', 'Correlation', 'Jaccard']
-header += ['C_Map_1 & C_Map_2', 'C_Map_1', 'C_Map_2', 'C_Map_1 | C_Map_2']
-print(*header, sep = ',', file = pairs_h)
+header = 'Char_1,Char_2,Transition_1,Transition_2,Count,Correlation,Jaccard'
+header += 'C_Map_1 & C_Map_2,C_Map_1,C_Map_2,C_Map_1 | C_Map_2'
+print(header, file = pairs_h)
 
 pairwise = {}
 for i in range(m) :
@@ -1373,13 +1384,13 @@ for i in range(m) :
 
                 pairwise[(i,j,(ai,bi),(aj,bj))] = correlation
 
-                ti = '{} -> {}'.format(ai,bi)
-                tj = '{} -> {}'.format(aj,bj)
+                ti = '{}->{}'.format(ai,bi)
+                tj = '{}->{}'.format(aj,bj)
 
-                aib = '; '.join('{} -> {}'.format(x,y) for x,y in inter)
-                aa = '; '.join('{} -> {}'.format(x,y) for x,y in A)
-                bb = '; '.join('{} -> {}'.format(x,y) for x,y in B)
-                aub = '; '.join('{} -> {}'.format(x,y) for x,y in union)
+                aib = '; '.join('{}->{}'.format(x,y) for x,y in inter)
+                aa = '; '.join('{}->{}'.format(x,y) for x,y in A)
+                bb = '; '.join('{}->{}'.format(x,y) for x,y in B)
+                aub = '; '.join('{}->{}'.format(x,y) for x,y in union)
 
                 coll = char[i], char[j], ti, tj, len(inter), correlation, jaccard
                 if branches :
@@ -1387,12 +1398,9 @@ for i in range(m) :
 
                 print(*coll, sep = ',', file = pairs_h)
 
-#
-# For significant correlation
-#----------------------------------------------------------------------
+pairs_h.close()
 
-if not args.significant :
-    sys.exit(0)
+# for significant correlation..
 
 #
 # bars and stars with a restriction for each bar --- adapted from:
@@ -1553,6 +1561,12 @@ def process_events(u, ts) :
 
     return e
 
+#
+# compute the number of ways a set of events (for a given soln of a
+# given character) can happen on the tree
+if not args.ways :
+    sys.exit(0)
+
 in_corr = set()
 for ai, bi, *_ in pairwise :
     in_corr.add(ai)
@@ -1601,7 +1615,29 @@ for i in range(m) :
         for ai in a[i] :
             ways[i][si] += w[u][ai][rs]
 
-        w = ways[i][si]
+ways_h = open(args.ways,'w')
+print('Char,Soln,No.Ways,Rolling Product', file = ways_h)
+
+for i in range(m) :
+
+    if not i in ways :
+        continue
+
+    cp = 1
+    for si in ways[i] :
+        no = len(ways[i][si])
+        cp *= no
+
+        print(char[i], si+1, no, cp, sep = ',', file = ways_h)
+
+ways_h.close()
+
+#
+# compute the individual consensus maps which will be (pairwise)
+# compared to compute significant correlation
+if not args.cmaps :
+    sys.exit(0)
+
 
 c_maps = {}
 for i in ways :
@@ -1617,6 +1653,11 @@ for i in ways :
 
         for p in rd :
             c_maps[i][p].append(Multiset(rd[p]))
+
+#
+# finally, compute significant correlation
+if not args.significant :
+    sys.exit(0)
 
 dist = {}
 for i in range(m) :
