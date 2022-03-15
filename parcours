@@ -13,6 +13,7 @@ from ete3 import Tree
 from collections import defaultdict
 import numpy
 from multiset import Multiset
+from frozendict import frozendict
 from itertools import product
 from sympy.utilities.iterables import multiset_permutations
 import parse
@@ -1638,12 +1639,27 @@ ways_h.close()
 if not args.cmaps :
     sys.exit(0)
 
+def list_to_frozendict(xs) :
+
+    d = defaultdict(int)
+    for x in xs :
+        d[x] += 1
+
+    return frozendict(d)
 
 c_maps = {}
-for i in ways :
-    w = ways[i]
+for i in range(m) :
 
-    c_maps[i] = defaultdict(list)
+    if not i in ways :
+        continue
+
+    c_maps[i] = {}
+    ts = get_transitions(a[i])
+    for t in ts :
+        c_maps[i][t] = defaultdict(int)
+
+    count = 0
+    w = ways[i]
     for c in product(*(w[si] for si in range(nsolns[char[i]]))) :
         rd = defaultdict(list)
 
@@ -1651,8 +1667,35 @@ for i in ways :
             for k in d :
                 rd[d[k]].append(k)
 
-        for p in rd :
-            c_maps[i][p].append(Multiset(rd[p]))
+        count += 1
+        print(count, rd)
+
+        for t in rd :
+            e = list_to_frozendict(rd[t])
+
+            print(t, rd[t])
+            print(t, e)
+
+            c_maps[i][t][e] += 1
+
+    for t in ts :
+        print(t, c_maps[i][t])
+
+cmaps_h = open(args.cmaps,'w')
+print('Char,Transition,C-Map Size', file = cmaps_h)
+
+for i in range(m) :
+
+    if not i in ways :
+        continue
+
+    c = c_maps[i]
+    for p in c :
+        tr = '{}->{}'.format(p[0], p[1])
+
+        print(char[i], tr, len(c[p]), sep = ',', file = cmaps_h)
+
+cmaps_h.close()
 
 #
 # finally, compute significant correlation
