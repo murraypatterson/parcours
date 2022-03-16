@@ -13,7 +13,7 @@ from ete3 import Tree
 from collections import defaultdict
 import numpy
 from multiset import Multiset
-from frozendict import frozendict
+from multiset import FrozenMultiset
 from itertools import product
 from sympy.utilities.iterables import multiset_permutations
 import parse
@@ -1639,14 +1639,6 @@ ways_h.close()
 if not args.cmaps :
     sys.exit(0)
 
-def list_to_frozendict(xs) :
-
-    d = defaultdict(int)
-    for x in xs :
-        d[x] += 1
-
-    return frozendict(d)
-
 c_maps = {}
 for i in range(m) :
 
@@ -1658,7 +1650,6 @@ for i in range(m) :
     for t in ts :
         c_maps[i][t] = defaultdict(int)
 
-    count = 0
     w = ways[i]
     for c in product(*(w[si] for si in range(nsolns[char[i]]))) :
         rd = defaultdict(list)
@@ -1667,22 +1658,12 @@ for i in range(m) :
             for k in d :
                 rd[d[k]].append(k)
 
-        count += 1
-        print(count, rd)
-
         for t in rd :
-            e = list_to_frozendict(rd[t])
-
-            print(t, rd[t])
-            print(t, e)
-
+            e = FrozenMultiset(rd[t])
             c_maps[i][t][e] += 1
 
-    for t in ts :
-        print(t, c_maps[i][t])
-
 cmaps_h = open(args.cmaps,'w')
-print('Char,Transition,C-Map Size', file = cmaps_h)
+print('Char,Transition,Size,Mass', file = cmaps_h)
 
 for i in range(m) :
 
@@ -1690,10 +1671,13 @@ for i in range(m) :
         continue
 
     c = c_maps[i]
-    for p in c :
-        tr = '{}->{}'.format(p[0], p[1])
-
-        print(char[i], tr, len(c[p]), sep = ',', file = cmaps_h)
+    for ai,bi in c :
+        ti = '{}->{}'.format(ai, bi)
+        size = len(c[(ai,bi)])
+        mass = sum(c[(ai,bi)].values())
+        
+        if size :
+            print(char[i], ti, size, mass, sep = ',', file = cmaps_h)
 
 cmaps_h.close()
 
@@ -1704,9 +1688,17 @@ if not args.significant :
 
 dist = {}
 for i in range(m) :
+
+    if not i in ways :
+        continue
+
     cmi = c_maps[i]
 
     for j in range(i) :
+
+        if not j in ways :
+            continue
+
         cmj = c_maps[j]
 
         for ai, bi in sorted(cmi) :
@@ -1728,8 +1720,9 @@ for i in range(m) :
                         correlation = len(inter) / float(len(union))
                         jaccard = len(set(inter)) / float(len(set(union)))
 
-                        dc[correlation] += 1
-                        dj[jaccard] += 1
+                        mass = As[A] * Bs[B]
+                        dc[correlation] += mass
+                        dj[jaccard] += mass
 
                 dist[(i,j,(ai,bi),(aj,bj))] = (dc,dj)
 
@@ -1746,3 +1739,5 @@ for i,j,(ai,bi),(aj,bj) in dist :
     dj = ': '.join(['{}:{}'.format(dj[x],x) for x in dj])
 
     print(char[i], char[j], ti, tj, dc, dj, sep = ',', file = sig_h)
+
+sig_h.close()
