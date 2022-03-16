@@ -823,6 +823,10 @@ parser.add_argument(
     help = 'include significant co-occurrence from pairwise above to a given (csv) file')
 
 parser.add_argument(
+    '-i', '--sigfrac', metavar = 'sigfrac.csv',
+    help = 'include significant co-occurrence as a fraction to a given (csv) file')
+
+parser.add_argument(
     '-s', '--save', metavar = 'out_conf.csv',
     help = 'save the configuration used to a configuration file')
 
@@ -1357,7 +1361,7 @@ for i in range(m) :
 # dump pairwise transition co-occurrence to file
 pairs_h = open(args.pairwise,'w')
 header = 'Char_1,Char_2,Transition_1,Transition_2,Count,Correlation,Jaccard'
-header += 'C_Map_1 & C_Map_2,C_Map_1,C_Map_2,C_Map_1 | C_Map_2'
+header += ',C_Map_1 & C_Map_2,C_Map_1,C_Map_2,C_Map_1 | C_Map_2'
 print(header, file = pairs_h)
 
 pairwise = {}
@@ -1727,7 +1731,9 @@ for i in range(m) :
                 dist[(i,j,(ai,bi),(aj,bj))] = (dc,dj)
 
 sig_h = open(args.significant,'w')
+sigf_h = open(args.sigfrac,'w')
 print('Char_1,Char_2,Transition_1,Transition_2,Correlation_dist,Jaccard_dist', file = sig_h)
+print('Char_1,Char_2,Transition_1,Transition_2,Correlation_frac,Jaccard_frac', file = sigf_h)
 
 for i,j,(ai,bi),(aj,bj) in dist :
 
@@ -1735,9 +1741,19 @@ for i,j,(ai,bi),(aj,bj) in dist :
     tj = '{}->{}'.format(aj,bj)
 
     dc, dj = dist[(i,j,(ai,bi),(aj,bj))]
-    dc = '; '.join(['{}:{}'.format(dc[x],x) for x in dc])
-    dj = ': '.join(['{}:{}'.format(dj[x],x) for x in dj])
 
-    print(char[i], char[j], ti, tj, dc, dj, sep = ',', file = sig_h)
+    dcr = '; '.join(['{}:{}'.format(dc[x],x) for x in dc])
+    djr = ': '.join(['{}:{}'.format(dj[x],x) for x in dj])
 
+    dcs = sum(dc.values())
+    djs = sum(dj.values())
+    dcf = '; '.join(['{}:{}'.format(dc[x] / float(dcs), x) for x in dc])
+    dcf += '; total = {}'.format(dcs)
+    djf = '; '.join(['{}:{}'.format(dj[x] / float(djs), x) for x in dj])
+    djf += ': total = {}'.format(djs)
+
+    print(char[i], char[j], ti, tj, dcr, djr, sep = ',', file = sig_h)
+    print(char[i], char[j], ti, tj, dcf, djf, sep = ',', file = sigf_h)
+    
 sig_h.close()
+sigf_h.close()
