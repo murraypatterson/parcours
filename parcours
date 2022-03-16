@@ -1750,7 +1750,7 @@ for i,j,(ai,bi),(aj,bj) in dist :
     dcf = '; '.join(['{}:{}'.format(dc[x] / float(dcs), x) for x in dc])
     dcf += '; total = {}'.format(dcs)
     djf = '; '.join(['{}:{}'.format(dj[x] / float(djs), x) for x in dj])
-    djf += ': total = {}'.format(djs)
+    djf += '; total = {}'.format(djs)
 
     print(char[i], char[j], ti, tj, dcr, djr, sep = ',', file = sig_h)
     print(char[i], char[j], ti, tj, dcf, djf, sep = ',', file = sigf_h)
