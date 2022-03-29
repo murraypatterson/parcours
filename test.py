@@ -70,7 +70,7 @@ def p_dp(u, sigma, rs, numerical = False) :
 
 #
 # W_u(r_1, ..., r_m | sigma)
-def W(u, sigma, rs, debug = False) :
+def W(u, sigma, rs, debug = False, prune = False) :
     result = []
 
     if debug :
@@ -121,7 +121,7 @@ def W(u, sigma, rs, debug = False) :
                     if debug :
                         print('    x', p_dp(v.name, pi[i], tuple(p[i] for p in ps)))
 
-                    if not w_v :
+                    if prune and not w_v :
 
                         if debug :
                             print('    ..prune')
