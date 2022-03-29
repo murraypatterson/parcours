@@ -47,36 +47,66 @@ def otimes(S, T) :
 
 #
 # pretty print the entries of a dictionary
-def p_d(d) :
+def p_d(d, math = False) :
+
+    if math :
+        return r'\{' + ', '.join(r'{}:\text{{{}}}{{\rightarrow}}\text{{{}}}'.format(x,d[x][0],d[x][1]) for x in d) + r'\}'
 
     return '{' + ', '.join('{}:{}->{}'.format(x,d[x][0],d[x][1]) for x in d) + '}'
 
 #
 # pretty print a list of dictionaries (an entry w of dp table)
-def p_w(w) :
+def p_w(w, math = False) :
 
-    return '[' + ', '.join(p_d(d) for d in w) + ']'
+    s = ', '.join(p_d(d, math=math) for d in w)
+
+    if math :
+        if not s :
+            return r'\0'
+        if s == r'\{\}' :
+            return r'\1'
+        return r'\{' + s + r'\}'
+
+    return '[' + s + ']'
 
 #
 # print an entry of the dp table (for debugging purposes)
-def p_dp(u, sigma, rs, numerical = False) :
+def p_dp(u, sigma, rs, numerical = False, math = False) :
 
     d = w[u][sigma][rs]
-    p = p_w(d)
+    p = p_w(d, math = math)
     if numerical :
         p = len(d)
+
+    if math :
+        r = ','.join(str(x) for x in rs)
+        return r'W_{}({} ~|~ \text{{{}}}) %= {}'.format(u, r, sigma, p)
 
     return 'w[{}][{}][{}] = {}'.format(u, sigma, rs, p)
 
 #
 # W_u(r_1, ..., r_m | sigma)
-def W(u, sigma, rs, debug = False, prune = False) :
+def W(u, sigma, rs, debug = False, prune = False, math = False) :
     result = []
-
+    bsw = False
+    
     if debug :
+        if not math :
+            print()
+
         print()
-        print()
-        print('w[{}][{}][{}] = U'.format(u.name, sigma, rs))
+
+        out = 'w[{}][{}][{}] = U'.format(u.name, sigma, rs)
+        if math :
+            print(r'\begin{multline*}')
+            
+            r = ','.join(str(x) for x in rs)
+            out = r'W_{}({} ~|~ \text{{{}}}) = \\'.format(u.name, r, sigma)
+
+        print(out)
+
+        if math :
+            print(r'\begin{aligned}')
 
     V = u.get_children()
     n = len(V)
@@ -112,21 +142,34 @@ def W(u, sigma, rs, debug = False, prune = False) :
                     base[0][v.name] = (sigma, pi[i])
                     prod[0][v.name] = (sigma, pi[i])
 
-                if debug :
+                if debug and not math :
                     print()
-                    
+
                 # bigotimes_{v in V} W_v(p_1^v, ..., p_m^v | pi^v)
                 for i, v in enumerate(V) :
                     w_v = w[v.name][pi[i]][tuple(p[i] for p in ps)]
                     prod = otimes(prod, w_v)
-                    
+
                     if debug :
-                        if not sw :
-                            print('     ', p_dp(v.name, pi[i], tuple(p[i] for p in ps)))
-                        else :
-                            print('    x', p_dp(v.name, pi[i], tuple(p[i] for p in ps)))
+                        pref = '     '
+
+                        if math :
+                            pref = '    &'
+
+                            if bsw :
+                                pref = r' \cup ~&'
+
+                        if sw :
+                            pref = '    x'
+
+                            if math :
+                                pref = r'   \x'
+                                
+                        print(pref, p_dp(v.name, pi[i], tuple(p[i] for p in ps), math = math))
+
+                        bsw = True
                         sw = True
-                            
+
                     if prune and not w_v :
 
                         if debug :
@@ -135,13 +178,26 @@ def W(u, sigma, rs, debug = False, prune = False) :
                         break
 
                 if debug :
-                    print('    x {} = {}'.format(p_w(base), p_w(prod)))
+                    pwb = p_w(base, math = math)
+                    pwp = p_w(prod, math = math)
+
+                    if math :
+                        print(r'   \x {} \\%= {}'.format(pwb, pwp))
+                    else :
+                        print('    x {} = {}'.format(pwb, pwp))
 
                 result += prod
 
     if debug :
-        print()
-        print('=', p_w(result))
+        if math :
+            print(r'\end{aligned}\\')
+        else :
+            print()
+
+        print('=', p_w(result, math=math))
+
+        if math :
+            print(r'\end{multline*}')
 
     return result
 
@@ -180,11 +236,21 @@ def process_events(string, ts) :
 # Main
 #----------------------------------------------------------------------
 
+mathmode = True
+
 tree = Tree(sys.argv[1], format = 8)
 alpha = get_alphabet(sys.argv[2])
 k = len(alpha)
 ts = get_transitions(alpha)
 e = process_events(sys.argv[3], ts)
+
+if mathmode :
+    print()
+    print(r'\newcommand{\0}{\emptyset}')
+    print(r'\newcommand{\1}{\{\emptyset\}}')
+    print(r'\newcommand{\x}{\otimes}')
+    print()
+    print(r'\begin{comment}')
 
 print()
 print('tree:', tree)
@@ -194,6 +260,10 @@ print()
 print('transitions:', ts)
 print()
 print('events:', e)
+
+if mathmode :
+    print()
+    print(r'\end{comment}')
 
 w = {} # dp table
 for node in tree.traverse('postorder') :
@@ -214,7 +284,10 @@ for node in tree.traverse('postorder') :
     # recursive case
     for a in alpha :            
         for rs in product(*(range(e[t]+1) for t in ts)) :
-            w[node.name][a][rs] = W(node, a, rs, debug = True)
+            w[node.name][a][rs] = W(node, a, rs, debug = True, math = mathmode)
+
+if mathmode :
+    sys.exit(0)
 
 # verify
 for node in tree.traverse('postorder') :
