@@ -205,19 +205,20 @@ def W(u, sigma, rs, debug = False, prune = False, math = False) :
 # obtain the alphabet: set of unique substrings from a string
 def get_alphabet(string) :
 
-    alpha = set([])
-
+    alpha = []
     for s in string.split() :
-        alpha.add(s)
 
-    return sorted(alpha)
+        if s not in alpha :
+            alpha.append(s)
+
+    return alpha
 
 #
 # obtain transitions from an alphabet: number of pairs (a,b) where b
 # is different from a
 def get_transitions(alpha) :
 
-    return sorted([(a,b) for a in alpha for b in alpha if b != a])
+    return [(a,b) for a in alpha for b in alpha if b != a]
 
 #
 # obtain (number of) transition events from a string and create a
