@@ -46,8 +46,24 @@ def otimes(S, T) :
     return [{**s, **t} for s in S for t in T]
 
 #
+# a concise pretty print for an entry of a dictionary, assuming branch
+# (key) is a character, and state transition (value) in binary
+def p_c(b, i, j) :
+
+    if i == alpha[0] :
+        assert j == alpha[1]
+        return b.upper()
+
+    assert i == alpha[1]
+    return b.lower()
+
+#
 # pretty print the entries of a dictionary
 def p_d(d, math = False) :
+
+    # an adhoc concise mode for the special case with two states
+    if concisemode :
+        return r'\{' + ', '.join(p_c(x,d[x][0],d[x][1]) for x in d) + r'\}'
 
     if math :
         return r'\{' + ', '.join(r'{}:\text{{{}}}{{\rightarrow}}\text{{{}}}'.format(x,d[x][0],d[x][1]) for x in d) + r'\}'
@@ -238,6 +254,7 @@ def process_events(string, ts) :
 #----------------------------------------------------------------------
 
 mathmode = True
+concisemode = True
 
 tree = Tree(sys.argv[1], format = 8)
 alpha = get_alphabet(sys.argv[2])
