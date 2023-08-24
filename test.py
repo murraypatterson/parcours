@@ -253,7 +253,7 @@ def process_events(string, ts) :
 # Main
 #----------------------------------------------------------------------
 
-mathmode = True
+mathmode = False
 concisemode = True
 
 tree = Tree(sys.argv[1], format = 8)
@@ -271,7 +271,7 @@ if mathmode :
     print(r'\begin{comment}')
 
 print()
-print('tree:', tree)
+print('tree:', tree.get_ascii(show_internal=True))
 print()
 print('alphabet:', alpha)
 print()
