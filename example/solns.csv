@@ -1,0 +1,6 @@
+Char,Soln,Size,Transitions
+A.weight,1,2,{Jaguarundi:high->low; Pallas:high->low}
+A.weight,2,2,{Puma:low->high; Cheetah:low->high}
+A.weight,3,2,{Jaguarundi:high->low; Y:low->high}
+A.dental,1,1,{Y:28->30}
+A.dental,2,1,{Pallas:30->28}

@@ -1,0 +1,7 @@
+Char,Soln,Transition,Count,Branches
+A.weight,1,high -> low,2,Z -> Jaguarundi; X -> Pallas
+A.weight,2,low -> high,2,Z -> Puma; Y -> Cheetah
+A.weight,3,high -> low,1,Z -> Jaguarundi
+A.weight,3,low -> high,1,X -> Y
+A.dental,1,28 -> 30,1,X -> Y
+A.dental,2,30 -> 28,1,X -> Pallas

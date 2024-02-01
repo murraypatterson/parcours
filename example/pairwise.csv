@@ -1,0 +1,3 @@
+Char_1,Char_2,Transition_1,Transition_2,Count,Correlation,Jaccard,C_Map_1 & C_Map_2,C_Map_1,C_Map_2,C_Map_1 | C_Map_2
+A.dental,A.weight,28 -> 30,low -> high,1,0.3333333333333333,0.3333333333333333,X -> Y,X -> Y,Z -> Puma; Y -> Cheetah; X -> Y,X -> Y; Z -> Puma; Y -> Cheetah
+A.dental,A.weight,30 -> 28,high -> low,1,0.3333333333333333,0.5,X -> Pallas,X -> Pallas,Z -> Jaguarundi; Z -> Jaguarundi; X -> Pallas,X -> Pallas; Z -> Jaguarundi; Z -> Jaguarundi

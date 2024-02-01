@@ -8,10 +8,10 @@ import math
 TREE_FILE = 'test.nh'
 TRANSITIONS = [(0,1),(1,0)]
 EVENTS = [2,2]
-GAINS = 1
-LOSSES = 1
+GAINS = 2
+LOSSES = 2
 SAMPLE_SIZE = 10000
-t = Tree(TREE_FILE)
+t = Tree(TREE_FILE, format=8)
 
 # produce a multiset from a set a and its multiplicities
 def multi(a, ms) :
@@ -23,7 +23,7 @@ def multi(a, ms) :
     return s
 
 def getTotalPermutationsGeneralized(n):
-    s = [str(x) for x in TRANSITIONS]
+    s = [x for x in TRANSITIONS]
     s.append("None")
     multiSet = multi(s, [*EVENTS, n-sum(EVENTS)-1])
     permutations = list(multiset_permutations(multiSet))
@@ -31,11 +31,9 @@ def getTotalPermutationsGeneralized(n):
     permutations_with_root = []
     for permutation in permutations:
         deck = deque(permutation)
-        print(deck)
         deck.appendleft("None")
         permwithroot = list(deck)
         permutations_with_root.append(permwithroot)
-    print(permutations_with_root)
     return(permutations_with_root)
 
 def getTotalPermutations(g,l,n):
@@ -47,11 +45,9 @@ def getTotalPermutations(g,l,n):
     permutations_with_root = []
     for permutation in permutations:
         deck = deque(permutation)
-        print(deck)
         deck.appendleft("N")
         permwithroot = list(deck)
         permutations_with_root.append(permwithroot)
-    print(permutations_with_root)
     return(permutations_with_root)
 
 def generateRandomTree(t:Tree, permutations:list):
@@ -61,10 +57,33 @@ def generateRandomTree(t:Tree, permutations:list):
         node.add_feature("value", None)
     return t, permutation
 
-def checkValidTreeGeneral(t:True):
-    # TODO: this function
-    pass
+def findTransitionNodes(t:Tree):
+    matches = []
+    for n in t.traverse():
+        if n.mutation in TRANSITIONS:
+            matches.append(n)
+    return matches
 
+def checkValidTreeGeneral(t:Tree):
+    # TODO: this function
+    print(t.get_ascii(show_internal=True, attributes=["mutation"]))
+    events = findTransitionNodes(t)
+    for event in events:
+        current_mutation = event.mutation
+        while event.up is not None:
+            ancestor = event.up
+            if ancestor.mutation == "None":
+                if ancestor.value is None:
+                    ancestor.add_feature("value", current_mutation[0])
+                elif ancestor.value != current_mutation[0]:
+                    return False               
+            if ancestor.mutation !="None":
+                if ancestor.mutation[1] != current_mutation[0]:
+                    return False
+                current_mutation = ancestor.mutation
+            event = ancestor
+    return True
+           
 def checkValidTree(t:Tree):
     r = t.get_tree_root
     gain_events = t.search_nodes(mutation="G")
@@ -133,7 +152,21 @@ def countValidTreesInSampleSize(sampleSize, totalPermutations, tree):
                 count += 1
     
     return count, attempts
-#############################################################
+
+def countValidTreesInSampleSizeGeneralized(sampleSize, totalPermutations, tree):
+    attempts = 0
+    count = 0
+    previouslyComputed = dict()
+    for i in range(sampleSize):
+        sampleTree, samplePermutation = generateRandomTree(tree, totalPermutations)
+        if str(samplePermutation) not in previouslyComputed:
+            attempts += 1
+            previouslyComputed[str(samplePermutation)] = checkValidTreeGeneral(sampleTree)
+            print(previouslyComputed[str(samplePermutation)])
+            if previouslyComputed[str(samplePermutation)]:
+                count += 1
+    
+    return count, attempts
 
 n = len(list(t.traverse()))
 p = getTotalPermutations(GAINS,LOSSES,n)
@@ -144,9 +177,20 @@ if(GAINS+LOSSES == 0):
 count, sampleSize = countValidTreesInSampleSize(SAMPLE_SIZE, p, t)
 estimated_gains_losses = len(p) * (count / sampleSize)
 
+g = getTotalPermutationsGeneralized(n)
+
 print("nodes on tree excluding root: {}".format(n-1))
 print("number of possible trees: {}".format(len(p)))
 print("valid trees found: {}".format(count))
 print("attempts: {}".format(sampleSize))
 print(estimated_gains_losses)
 
+print("----------------GENERALIZED VERSION----------------------")
+count2, sampleSize2 = countValidTreesInSampleSizeGeneralized(SAMPLE_SIZE, g, t)
+estimated_gains_losses2 = len(g) * (count2 / sampleSize2)
+print(f"number of total possible trees: {len(g)}")
+print(f"valid trees found: {count2}")
+print(f"attempts: {sampleSize2}")
+print(f"estimated number of ways to have the given number of events in the tree {estimated_gains_losses2}")
+
+ 
