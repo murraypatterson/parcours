@@ -254,7 +254,7 @@ def process_events(string, ts) :
 #----------------------------------------------------------------------
 
 mathmode = False
-concisemode = True
+concisemode = False
 
 tree = Tree(sys.argv[1], format = 8)
 alpha = get_alphabet(sys.argv[2])
