@@ -123,13 +123,39 @@ def countValidTreesInSampleSizeGeneralized(sampleSize, totalPermutations, tree):
     
     return count, attempts
 
-n = len(list(t.traverse()))
-g = getTotalPermutationsGeneralized(n)
-print("----------------GENERALIZED VERSION----------------------")
-count, sampleSize2 = countValidTreesInSampleSizeGeneralized(SAMPLE_SIZE, g, t)
-estimated_gains_losses2 = len(g) * (count / sampleSize2)
-print(f"number of total possible trees: {len(g)}")
-print(f"valid trees found: {count}")
-print(f"attempts: {sampleSize2}")
-print(f"estimated number of ways to have the given number of events in the tree {estimated_gains_losses2}")
+def getEventsInTree(tree:Tree, transitions:list, events:list, gains:int, losses:int):
+    TRANSITIONS = transitions
+    EVENTS = events
+    GAINS = gains
+    LOSSES = losses
+    n = len(list(t.traverse()))
+    g = getTotalPermutationsGeneralized(n)
+    count, sampleSize2 = countValidTreesInSampleSizeGeneralized(SAMPLE_SIZE, g, t)
+    estimated_gains_losses = len(g) * (count / sampleSize2)
+    print(f"estimated number of ways to have the given number of events in the tree {estimated_gains_losses}")
+    return
+
+
+    pass
+
+def main():
+    n = len(list(t.traverse()))
+    g = getTotalPermutationsGeneralized(n)
+    print("----------------GENERALIZED VERSION----------------------")
+    count, sampleSize2 = countValidTreesInSampleSizeGeneralized(SAMPLE_SIZE, g, t)
+    estimated_gains_losses = len(g) * (count / sampleSize2)
+    print(f"number of total possible trees: {len(g)}")
+    print(f"valid trees found: {count}")
+    print(f"attempts: {sampleSize2}")
+    print(f"estimated number of ways to have the given number of events in the tree {estimated_gains_losses}")
+
+def getGainsLosses(tree, transitions, events, gains, losses):
+    n = len(list(tree.traverse()))
+    g = getTotalPermutationsGeneralized(n)
+    count, sampleSize = countValidTreesInSampleSizeGeneralized(SAMPLE_SIZE, g, tree)
+    estimated_gains_losses = len(g) * (count / sampleSize)
+    return estimated_gains_losses
+
+if __name__ == "__main__":
+    main()
  
