@@ -16,7 +16,7 @@ def main():
     for i in range(2,ITERATIONS):
         trees = nonisomorphic_trees(order=i, create='graph')
         for tree in trees:
-            networkx_to_tree(tree)
+            tree_name = networkx_to_tree(tree)
 
 if __name__ == "__main__":
     main()
