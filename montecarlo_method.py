@@ -4,12 +4,10 @@ from collections import deque
 import random
 
 class MontecarloMethodTest:
-    def __init__(self, tree, transitions, events, gains, losses, sampleSize=50000):
+    def __init__(self, tree, transitions, events, sampleSize=50000):
         self.tree = tree
         self.transitions = transitions
         self.events = events
-        self.gains = gains
-        self.losses = losses
         self.sampleSize = sampleSize
 
     def multi(self, a, ms):
@@ -84,14 +82,12 @@ class MontecarloMethodTest:
         print(f"Estimated number of ways to have the given number of events in the tree: {estimated_gains_losses}")
 
 def main():
-    TREE_FILE = 'test.nh'
+    TREE_FILE = 'tree.nh'
     TRANSITIONS = [(0,1), (1,0), (1,2), (2,1), (0,2), (2,0)]
     EVENTS = [1, 1, 1, 1, 1, 1]
-    GAINS = 2
-    LOSSES = 2
     SAMPLE_SIZE = 50000
 
-    analyzer = MontecarloMethodTest(Tree(TREE_FILE, format=8), TRANSITIONS, EVENTS, GAINS, LOSSES, SAMPLE_SIZE)
+    analyzer = MontecarloMethodTest(Tree(TREE_FILE, format=8), TRANSITIONS, EVENTS, SAMPLE_SIZE)
     analyzer.getEventsInTree()
 
 if __name__ == "__main__":
