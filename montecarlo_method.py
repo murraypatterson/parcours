@@ -80,14 +80,14 @@ class MontecarloMethodTest:
         count, sampleSize2 = self.countValidTreesInSampleSizeGeneralized(self.sampleSize, g)
         estimated_gains_losses = len(g) * (count / sampleSize2)
         print(f"Estimated number of ways to have the given number of events in the tree: {estimated_gains_losses}")
+        return estimated_gains_losses
 
 def main():
     TREE_FILE = 'tree.nh'
     TRANSITIONS = [(0,1), (1,0), (1,2), (2,1), (0,2), (2,0)]
     EVENTS = [1, 1, 1, 1, 1, 1]
-    SAMPLE_SIZE = 50000
 
-    analyzer = MontecarloMethodTest(Tree(TREE_FILE, format=8), TRANSITIONS, EVENTS, SAMPLE_SIZE)
+    analyzer = MontecarloMethodTest(Tree(TREE_FILE, format=8), TRANSITIONS, EVENTS)
     analyzer.getEventsInTree()
 
 if __name__ == "__main__":

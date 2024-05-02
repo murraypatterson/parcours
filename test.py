@@ -6,12 +6,22 @@ from sympy.utilities.iterables import multiset_permutations
 import numpy
 import parse
 
+def get_alphabet(string) :
+
+        alpha = []
+        for s in string.split() :
+
+            if s not in alpha :
+                alpha.append(s)
+
+        return alpha
+
 class RecursiveTest:
     # bars and stars with a restriction for each bar --- adapted from:
     # https://stackoverflow.com/questions/28965734/general-bars-and-stars
-    def __init__(self, tree_filename=None, alpha=None, events=None, concisemode=False):
-        self.tree = Tree(tree_filename, format=8)
-        self.alpha = self.get_alphabet(alpha)
+    def __init__(self, tree=None, alpha=None, events=None, concisemode=False):
+        self.tree = tree
+        self.alpha = alpha
         self.ts = self.get_transitions(self.alpha)
         self.k = len(self.alpha)
         self.w = {}
@@ -226,15 +236,6 @@ class RecursiveTest:
 
     #
     # obtain the alphabet: set of unique substrings from a string
-    def get_alphabet(self, string) :
-
-        alpha = []
-        for s in string.split() :
-
-            if s not in alpha :
-                alpha.append(s)
-
-        return alpha
 
     #
     # obtain transitions from an alphabet: number of pairs (a,b) where b
@@ -298,9 +299,9 @@ class RecursiveTest:
             # recursive case
             for a in self.alpha :            
                 for rs in product(*(range(self.e[t]+1) for t in self.ts)) :
-                    self.w[node.name][a][rs] = self.W(node, a, rs, debug = True, math = mathmode)
+                    self.w[node.name][a][rs] = self.W(node, a, rs, debug = False, math = False)
         for a in self.alpha:
-            d = self.W(self.tree.get_tree_root(),a,(1,1,1,1,1,1))
+            d = self.W(self.tree.get_tree_root(),a,list(self.e.values()))
             print("test numeric return")
             print(len(d))
             count += len(d)
@@ -322,6 +323,5 @@ class RecursiveTest:
 # Main
 #----------------------------------------------------------------------
 if __name__ == "__main__":
-    analyzer0 = RecursiveTest()
-    analyzer = RecursiveTest(sys.argv[1], sys.argv[2], sys.argv[3])
+    analyzer = RecursiveTest(Tree(sys.argv[1], format=8), get_alphabet(sys.argv[2]), sys.argv[3])
     print(analyzer.test())
