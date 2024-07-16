@@ -19,7 +19,7 @@ def get_alphabet(string) :
 class RecursiveTest:
     # bars and stars with a restriction for each bar --- adapted from:
     # https://stackoverflow.com/questions/28965734/general-bars-and-stars
-    def __init__(self, tree=None, alpha=None, events=None, concisemode=False):
+    def __init__(self, tree=None, alpha=None, events=None, concisemode=True):
         self.tree = tree
         self.alpha = alpha
         self.ts = self.get_transitions(self.alpha)

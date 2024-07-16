@@ -39,8 +39,13 @@ def callMontecarloMethod(tree, alphabet, events):
     analyzer = montecarlo_method.MontecarloMethodTest(tree=tree, transitions=alphabet, events=events)
     return analyzer.getEventsInTree()
 
-def callRecursiveMethod(tree, alphabet, events):
-    pass
+def callRecursiveMethod(tree, events, alphabet, i):
+    chars = list(range(min(ALPHABET_SIZE, i)))
+    transitons = []
+    for alpha in alphabet:
+        transitons.append(f"1:{alpha[0]}->{alpha[1]}")
+    analyzer = test.RecursiveTest(tree, chars, ' '.join(transitons))
+    return analyzer.test()
 
 def main():
     for i in range(2,ITERATIONS):
@@ -54,7 +59,8 @@ def main():
                 if not alphabet:
                     continue
                 events = [1] * len(alphabet)
-                callMontecarloMethod(ete_tree, alphabet, events)
+#                print(callMontecarloMethod(ete_tree, alphabet, events))
+                print(callRecursiveMethod(ete_tree, events, alphabet, i))
                 
 
 if __name__ == "__main__":
